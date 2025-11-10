@@ -291,27 +291,50 @@ class Game:
         overlay.fill(BLACK)
         self.screen.blit(overlay, (0, 0))
         
-        # 根据胜负显示不同文字
+        # 根据胜负显示不同文字和颜色
         if self.game_won:
             # 胜利画面
-            game_over_text = self.font_large.render("Victory!", True, YELLOW)
-            result_text = self.font_medium.render("恭喜获胜！", True, GREEN)
+            title_text = self.font_large.render("VICTORY!", True, YELLOW)
+            title_bg_color = (100, 100, 0)  # 深黄色
+            emoji = "* * * * *"
+            emoji_color = YELLOW
         else:
             # 失败画面
-            game_over_text = self.font_large.render("Game Over!", True, RED)
-            result_text = self.font_medium.render("游戏失败", True, RED)
+            title_text = self.font_large.render("GAME OVER", True, RED)
+            title_bg_color = (100, 0, 0)  # 深红色
+            emoji = "X X X X X"
+            emoji_color = RED
         
-        score_text = self.font_medium.render(f"最终得分: {self.score}", True, WHITE)
-        restart_text = self.font_small.render("按 R 重新开始 | 按 ESC 退出", True, YELLOW)
+        # 标题背景
+        title_bg = pygame.Surface((title_text.get_width() + 40, title_text.get_height() + 20))
+        title_bg.set_alpha(180)
+        title_bg.fill(title_bg_color)
+        title_x = SCREEN_WIDTH // 2 - title_text.get_width() // 2
+        self.screen.blit(title_bg, (title_x - 20, 160))
+        self.screen.blit(title_text, (title_x, 170))
         
-        self.screen.blit(game_over_text, 
-                        (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2, 180))
-        self.screen.blit(result_text, 
-                        (SCREEN_WIDTH // 2 - result_text.get_width() // 2, 240))
-        self.screen.blit(score_text, 
-                        (SCREEN_WIDTH // 2 - score_text.get_width() // 2, 290))
-        self.screen.blit(restart_text, 
-                        (SCREEN_WIDTH // 2 - restart_text.get_width() // 2, 350))
+        # 装饰符号
+        emoji_text = self.font_medium.render(emoji, True, emoji_color)
+        self.screen.blit(emoji_text, 
+                        (SCREEN_WIDTH // 2 - emoji_text.get_width() // 2, 220))
+        
+        # 最终得分
+        score_text = self.font_medium.render(f"Final Score: {self.score}", True, WHITE)
+        score_bg = pygame.Surface((score_text.get_width() + 30, score_text.get_height() + 15))
+        score_bg.set_alpha(150)
+        score_bg.fill(BLACK)
+        score_x = SCREEN_WIDTH // 2 - score_text.get_width() // 2
+        self.screen.blit(score_bg, (score_x - 15, 265))
+        self.screen.blit(score_text, (score_x, 273))
+        
+        # 重新开始提示
+        restart_text = self.font_small.render("Press R to Restart | ESC to Quit", True, YELLOW)
+        restart_bg = pygame.Surface((restart_text.get_width() + 20, restart_text.get_height() + 10))
+        restart_bg.set_alpha(120)
+        restart_bg.fill((50, 50, 0))
+        restart_x = SCREEN_WIDTH // 2 - restart_text.get_width() // 2
+        self.screen.blit(restart_bg, (restart_x - 10, 340))
+        self.screen.blit(restart_text, (restart_x, 345))
     
     def reset_game(self):
         """重置游戏"""

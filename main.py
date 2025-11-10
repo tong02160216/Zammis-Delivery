@@ -2,9 +2,10 @@ import pygame
 import cv2
 import sys
 from pathlib import Path
+from PIL import Image, ImageSequence
 
 # 前景与背景图片的绝对路径（请确保文件存在）
-FOREGROUND_PATH = Path(r"F:\code\zammi\Zammis-Delivery\屏幕截图 2025-10-16 105916.png")
+FOREGROUND_PATH = Path(r"F:\code\zammi\Zammis-Delivery\zammi_walk.gif")
 BACKGROUND_PATH = Path(r"F:\code\zammi\Zammis-Delivery\屏幕截图 2025-10-11 171938.png")
 VIDEO_PATH = Path(r"F:\code\zammi\Zammis-Delivery\875b55be8f5a0e72b6e28c650a49a795.mp4")
 
@@ -16,27 +17,57 @@ def load_image(path: Path):
     return pygame.image.load(str(path))
 
 
+def load_gif_frames(path: Path):
+    """加载GIF文件的所有帧并转换为pygame surface列表"""
+    if not path.exists():
+        raise FileNotFoundError(f"找不到GIF文件: {path}")
+    
+    gif = Image.open(path)
+    frames = []
+    durations = []
+    
+    try:
+        for frame in ImageSequence.Iterator(gif):
+            # 转换为RGBA模式
+            frame_rgba = frame.convert('RGBA')
+            # 转换为pygame surface
+            frame_data = frame_rgba.tobytes()
+            pygame_surface = pygame.image.fromstring(frame_data, frame_rgba.size, 'RGBA')
+            frames.append(pygame_surface.convert_alpha())
+            # 获取帧持续时间（毫秒）
+            durations.append(frame.info.get('duration', 100))
+    except Exception as e:
+        print(f"加载GIF帧时出错: {e}")
+        # 如果失败，至少返回第一帧
+        if frames:
+            return frames, durations
+        raise
+    
+    return frames, durations
+
+
 def main():
     pygame.init()
 
-    # 加载图片
+    # 加载背景图片
     bg = load_image(BACKGROUND_PATH)
-    fg = load_image(FOREGROUND_PATH)
+    
+    # 先创建临时窗口以便加载GIF
+    temp_screen = pygame.display.set_mode((100, 100))
+    
+    # 加载GIF动画帧
+    fg_frames, fg_durations = load_gif_frames(FOREGROUND_PATH)
+    current_frame = 0
+    frame_timer = 0
+    
+    print(f"✅ 成功加载 {len(fg_frames)} 帧GIF动画")
 
-    # 转换加速显示：根据 Surface 是否含有 alpha 选择 convert/convert_alpha
+    # 转换背景加速显示
     try:
-        # 如果图片含有 alpha 通道，使用 convert_alpha() 否则 convert()
         if getattr(bg, 'get_alpha', lambda: None)() is not None or bg.get_bitsize() == 32:
             bg = bg.convert_alpha()
         else:
             bg = bg.convert()
-    except Exception:
-        pass
-    try:
-        if getattr(fg, 'get_alpha', lambda: None)() is not None or fg.get_bitsize() == 32:
-            fg = fg.convert_alpha()
-        else:
-            fg = fg.convert()
     except Exception:
         pass
 
@@ -61,11 +92,12 @@ def main():
 
     # 窗口大小与背景一致（使用带装饰的背景）
     screen = pygame.display.set_mode(bg_decor.get_size())
-    pygame.display.set_caption("WASD 控制 — Esc 退出")
+    pygame.display.set_caption("WASD 控制 — Esc 退出 | GIF 动画")
 
     clock = pygame.time.Clock()
 
-    # 初始位置居中
+    # 初始位置居中（使用第一帧获取尺寸）
+    fg = fg_frames[0]
     x = (screen.get_width() - fg.get_width()) // 2
     y = (screen.get_height() - fg.get_height()) // 2
 
@@ -153,6 +185,13 @@ def main():
                     except Exception:
                         pass
 
+        # 更新GIF动画帧
+        frame_timer += clock.get_time()
+        if frame_timer >= fg_durations[current_frame]:
+            frame_timer = 0
+            current_frame = (current_frame + 1) % len(fg_frames)
+            fg = fg_frames[current_frame]
+        
         keys = pygame.key.get_pressed()
         # WASD 或 箭头 - 每帧固定位移
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
