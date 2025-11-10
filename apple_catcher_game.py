@@ -33,7 +33,18 @@ class Apple:
         self.x = random.randint(self.size, SCREEN_WIDTH - self.size)
         self.y = -self.size
         self.speed = random.randint(2, 5)
-        self.color = random.choice([RED, GREEN, YELLOW])
+        
+        # 使用加权随机：红苹果稀有(10%)，绿苹果正常(30%)，黄苹果常见(60%)
+        rand_num = random.random()
+        if rand_num < 0.1:  # 10% 概率红苹果
+            self.color = RED
+            self.points = 3
+        elif rand_num < 0.4:  # 30% 概率绿苹果 (0.1 + 0.3 = 0.4)
+            self.color = GREEN
+            self.points = 2
+        else:  # 60% 概率黄苹果
+            self.color = YELLOW
+            self.points = 1
     
     def update(self):
         self.y += self.speed
@@ -189,6 +200,7 @@ class Game:
         self.score = 0
         self.missed = 0
         self.game_over = False
+        self.game_won = False  # 新增：胜利状态
         self.spawn_timer = 0
         self.spawn_delay = 40  # 帧数
         
@@ -220,17 +232,56 @@ class Game:
     
     def draw_ui(self):
         """绘制UI"""
-        # 分数
-        score_text = self.font_medium.render(f"得分: {self.score}", True, BLACK)
-        self.screen.blit(score_text, (10, 10))
+        # 分数（左上角，显示目标）- 添加半透明背景，使用小字体
+        score_text = self.font_small.render(f"Score: {self.score}/15", True, WHITE)
+        score_bg = pygame.Surface((score_text.get_width() + 20, score_text.get_height() + 10))
+        score_bg.set_alpha(150)
+        score_bg.fill(BLACK)
+        self.screen.blit(score_bg, (5, 5))
+        self.screen.blit(score_text, (15, 10))
         
-        # 失误
-        missed_text = self.font_medium.render(f"失误: {self.missed}/10", True, RED)
-        self.screen.blit(missed_text, (SCREEN_WIDTH - 150, 10))
+        # 失误（右上角）- 添加半透明背景，使用小字体
+        missed_text = self.font_small.render(f"Miss: {self.missed}/3", True, WHITE)
+        missed_bg = pygame.Surface((missed_text.get_width() + 20, missed_text.get_height() + 10))
+        missed_bg.set_alpha(150)
+        missed_bg.fill((139, 0, 0))  # 深红色背景
+        self.screen.blit(missed_bg, (SCREEN_WIDTH - missed_text.get_width() - 25, 5))
+        self.screen.blit(missed_text, (SCREEN_WIDTH - missed_text.get_width() - 15, 10))
         
         # 提示
-        hint_text = self.font_small.render("移动手掌控制篮子", True, BLACK)
-        self.screen.blit(hint_text, (SCREEN_WIDTH // 2 - 100, 10))
+        hint_text = self.font_small.render("Move Hand to Control", True, WHITE)
+        hint_bg = pygame.Surface((hint_text.get_width() + 10, hint_text.get_height() + 6))
+        hint_bg.set_alpha(120)
+        hint_bg.fill(BLACK)
+        self.screen.blit(hint_bg, (SCREEN_WIDTH // 2 - hint_text.get_width() // 2 - 5, 50))
+        self.screen.blit(hint_text, (SCREEN_WIDTH // 2 - hint_text.get_width() // 2, 53))
+        
+        # 苹果分值说明（右下角）- 使用像素方块代替emoji
+        points_info = [
+            (RED, 3),
+            (GREEN, 2),
+            (YELLOW, 1)
+        ]
+        y_offset = SCREEN_HEIGHT - 120
+        for color, points in points_info:
+            # 绘制像素苹果图标
+            apple_size = 15
+            apple_x = SCREEN_WIDTH - 120
+            apple_y = y_offset
+            # 苹果身体
+            pygame.draw.rect(self.screen, color, 
+                           (apple_x, apple_y, apple_size, apple_size))
+            # 苹果高光
+            pygame.draw.rect(self.screen, WHITE, 
+                           (apple_x + 2, apple_y + 2, 5, 5))
+            # 苹果柄
+            pygame.draw.rect(self.screen, BROWN, 
+                           (apple_x + apple_size//2 - 1, apple_y - 3, 3, 4))
+            
+            # 绘制分数文字
+            info_text = self.font_small.render(f"= {points} fen", True, BLACK)
+            self.screen.blit(info_text, (apple_x + apple_size + 10, apple_y))
+            y_offset += 25
     
     def draw_game_over(self):
         """绘制游戏结束画面"""
@@ -240,15 +291,25 @@ class Game:
         overlay.fill(BLACK)
         self.screen.blit(overlay, (0, 0))
         
-        # 游戏结束文字
-        game_over_text = self.font_large.render("游戏结束!", True, RED)
+        # 根据胜负显示不同文字
+        if self.game_won:
+            # 胜利画面
+            game_over_text = self.font_large.render("Victory!", True, YELLOW)
+            result_text = self.font_medium.render("恭喜获胜！", True, GREEN)
+        else:
+            # 失败画面
+            game_over_text = self.font_large.render("Game Over!", True, RED)
+            result_text = self.font_medium.render("游戏失败", True, RED)
+        
         score_text = self.font_medium.render(f"最终得分: {self.score}", True, WHITE)
         restart_text = self.font_small.render("按 R 重新开始 | 按 ESC 退出", True, YELLOW)
         
         self.screen.blit(game_over_text, 
-                        (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2, 200))
+                        (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2, 180))
+        self.screen.blit(result_text, 
+                        (SCREEN_WIDTH // 2 - result_text.get_width() // 2, 240))
         self.screen.blit(score_text, 
-                        (SCREEN_WIDTH // 2 - score_text.get_width() // 2, 280))
+                        (SCREEN_WIDTH // 2 - score_text.get_width() // 2, 290))
         self.screen.blit(restart_text, 
                         (SCREEN_WIDTH // 2 - restart_text.get_width() // 2, 350))
     
@@ -259,6 +320,7 @@ class Game:
         self.score = 0
         self.missed = 0
         self.game_over = False
+        self.game_won = False
         self.spawn_timer = 0
     
     def run(self):
@@ -313,18 +375,32 @@ class Game:
                     # 检测碰撞
                     if apple.get_rect().colliderect(basket_rect):
                         self.apples.remove(apple)
-                        self.score += 10
-                        print(f"🍎 接到苹果！得分: {self.score}")
+                        self.score += apple.points
+                        # 根据苹果颜色显示不同信息
+                        if apple.points == 3:
+                            print(f"🍎 红苹果！+{apple.points}分 总分: {self.score}")
+                        elif apple.points == 2:
+                            print(f"🍏 绿苹果！+{apple.points}分 总分: {self.score}")
+                        else:
+                            print(f"🍋 黄苹果！+{apple.points}分 总分: {self.score}")
+                        
+                        # 检测胜利条件：达到15分
+                        if self.score >= 15:
+                            self.game_over = True
+                            self.game_won = True
+                            print(f"🎉 恭喜获胜！最终得分: {self.score}")
                     
                     # 检测掉落
                     elif apple.is_off_screen():
                         self.apples.remove(apple)
                         self.missed += 1
-                        print(f"💔 失误 {self.missed}/10")
+                        print(f"💔 失误 {self.missed}/3")
                         
-                        if self.missed >= 10:
+                        # 检测失败条件：错过3个苹果
+                        if self.missed >= 3:
                             self.game_over = True
-                            print(f"🎮 游戏结束！最终得分: {self.score}")
+                            self.game_won = False
+                            print(f"💀 游戏失败！最终得分: {self.score}")
             
             # 绘制
             self.draw_background()
@@ -357,8 +433,9 @@ def main():
     print("=" * 50)
     print("📖 游戏说明：")
     print("  • 移动手掌控制篮子左右移动")
-    print("  • 接住下落的苹果得分")
-    print("  • 失误10个苹果游戏结束")
+    print("  • 接住苹果得分（红🍎=3分 绿🍏=2分 黄🍋=1分）")
+    print("  • 得分达到15分获胜！")
+    print("  • 错过3个苹果失败！")
     print("  • 按 R 重新开始")
     print("  • 按 ESC 退出游戏")
     print("=" * 50)
