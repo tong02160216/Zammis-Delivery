@@ -2,11 +2,11 @@ import pygame
 import cv2
 import sys
 from pathlib import Path
-from PIL import Image, ImageSequence
+import glob
 
 # 前景与背景图片的绝对路径（请确保文件存在）
-FOREGROUND_PATH = Path(r"F:\code\zammi\Zammis-Delivery\zammi_walk.gif")
-BACKGROUND_PATH = Path(r"F:\code\zammi\Zammis-Delivery\屏幕截图 2025-10-11 171938.png")
+FOREGROUND_FRAMES_PATTERN = r"F:\code\zammi\Zammis-Delivery\zammi_*.png"
+BACKGROUND_PATH = Path(r"F:\code\zammi\88f67a263c51a072958e44b19ed723b3.png")
 VIDEO_PATH = Path(r"F:\code\zammi\Zammis-Delivery\875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
@@ -17,31 +17,21 @@ def load_image(path: Path):
     return pygame.image.load(str(path))
 
 
-def load_gif_frames(path: Path):
-    """加载GIF文件的所有帧并转换为pygame surface列表"""
-    if not path.exists():
-        raise FileNotFoundError(f"找不到GIF文件: {path}")
+def load_png_frames(pattern: str):
+    """加载PNG序列帧"""
+    frame_files = sorted(glob.glob(pattern))
+    if not frame_files:
+        raise FileNotFoundError(f"找不到匹配的PNG文件: {pattern}")
     
-    gif = Image.open(path)
     frames = []
-    durations = []
+    print(f"正在加载 {len(frame_files)} 个PNG帧...")
     
-    try:
-        for frame in ImageSequence.Iterator(gif):
-            # 转换为RGBA模式
-            frame_rgba = frame.convert('RGBA')
-            # 转换为pygame surface
-            frame_data = frame_rgba.tobytes()
-            pygame_surface = pygame.image.fromstring(frame_data, frame_rgba.size, 'RGBA')
-            frames.append(pygame_surface.convert_alpha())
-            # 获取帧持续时间（毫秒）
-            durations.append(frame.info.get('duration', 100))
-    except Exception as e:
-        print(f"加载GIF帧时出错: {e}")
-        # 如果失败，至少返回第一帧
-        if frames:
-            return frames, durations
-        raise
+    for frame_file in frame_files:
+        surface = pygame.image.load(frame_file).convert_alpha()
+        frames.append(surface)
+    
+    # 所有帧使用相同的持续时间（100毫秒）
+    durations = [100] * len(frames)
     
     return frames, durations
 
@@ -52,15 +42,15 @@ def main():
     # 加载背景图片
     bg = load_image(BACKGROUND_PATH)
     
-    # 先创建临时窗口以便加载GIF
+    # 先创建临时窗口以便加载PNG帧
     temp_screen = pygame.display.set_mode((100, 100))
     
-    # 加载GIF动画帧
-    fg_frames, fg_durations = load_gif_frames(FOREGROUND_PATH)
+    # 加载PNG序列帧动画
+    fg_frames, fg_durations = load_png_frames(FOREGROUND_FRAMES_PATTERN)
     current_frame = 0
     frame_timer = 0
     
-    print(f"✅ 成功加载 {len(fg_frames)} 帧GIF动画")
+    print(f"✅ 成功加载 {len(fg_frames)} 帧PNG动画")
 
     # 转换背景加速显示
     try:
@@ -203,9 +193,9 @@ def main():
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
             y += speed
 
-        # 边界限制：保证前景图不跑出窗口
-        x = max(0, min(screen.get_width() - fg.get_width(), x))
-        y = max(0, min(screen.get_height() - fg.get_height(), y))
+        # Y轴边界限制：限制在279到319之间
+        y = max(279, min(319, y))
+        # X轴不限制，可以自由移动
 
         # 绘制背景（带装饰）。先填充一个中性色作为回退，防止意外的黑屏
         screen.fill((50, 50, 50))
@@ -219,18 +209,33 @@ def main():
                 pass
         screen.blit(fg, (int(x), int(y)))
 
-        # 碰撞检测：前景与右上白色圆
+        # 碰撞检测：只检测人物中心点是否碰到白色圆
         try:
-            # fg_rect 使用当前前景位置和尺寸
-            fg_rect = pygame.Rect(int(x), int(y), fg.get_width(), fg.get_height())
-            # 圆心和半径（在主循环外定义时已计算）
-            # cx, cy, circle_radius
-            closest_x = max(fg_rect.left, min(cx, fg_rect.right))
-            closest_y = max(fg_rect.top, min(cy, fg_rect.bottom))
-            dist_sq = (closest_x - cx) ** 2 + (closest_y - cy) ** 2
-            collided = dist_sq <= (circle_radius ** 2)
-        except Exception:
+            # 计算人物中心点
+            character_center_x = int(x) + fg.get_width() // 2
+            character_center_y = int(y) + fg.get_height() // 2
+            
+            # 计算人物中心点与白色圆圈中心的距离
+            dist_x = character_center_x - cx
+            dist_y = character_center_y - cy
+            distance = (dist_x ** 2 + dist_y ** 2) ** 0.5
+            
+            # 增大触发范围：圆圈半径 + 额外容差
+            trigger_radius = circle_radius + 30  # 增加30像素的触发范围
+            
+            # 只有当人物中心点进入触发范围内才触发
+            collided = distance <= trigger_radius
+            
+            # 绘制调试信息：人物中心点（红色小圆点）
+            pygame.draw.circle(screen, (255, 0, 0), (character_center_x, character_center_y), 5)
+            # 绘制触发范围（半透明绿色圆圈）
+            trigger_surface = pygame.Surface((trigger_radius*2, trigger_radius*2), pygame.SRCALPHA)
+            pygame.draw.circle(trigger_surface, (0, 255, 0, 50), (trigger_radius, trigger_radius), trigger_radius, 2)
+            screen.blit(trigger_surface, (cx - trigger_radius, cy - trigger_radius))
+            
+        except Exception as e:
             collided = False
+            print(f"碰撞检测错误: {e}")
 
         # 根据碰撞设置文字框显示状态
         show_box = collided
@@ -261,6 +266,33 @@ def main():
             txt_x = box_x + (box_w - txt_surf.get_width()) // 2
             txt_y = box_y + (h - txt_surf.get_height()) // 2
             screen.blit(txt_surf, (txt_x, txt_y))
+
+        # 绘制坐标标尺
+        ruler_font = pygame.font.SysFont(None, 16)
+        ruler_color = (255, 255, 0)  # 黄色
+        
+        # 左侧 Y 轴标尺（每100像素一个刻度）
+        for y_pos in range(0, screen.get_height(), 100):
+            pygame.draw.line(screen, ruler_color, (0, y_pos), (10, y_pos), 2)
+            y_text = ruler_font.render(str(y_pos), True, ruler_color)
+            screen.blit(y_text, (12, y_pos - 8))
+        
+        # 顶部 X 轴标尺（每100像素一个刻度）
+        for x_pos in range(0, screen.get_width(), 100):
+            pygame.draw.line(screen, ruler_color, (x_pos, 0), (x_pos, 10), 2)
+            x_text = ruler_font.render(str(x_pos), True, ruler_color)
+            screen.blit(x_text, (x_pos - 10, 12))
+        
+        # 绘制坐标轴线
+        pygame.draw.line(screen, ruler_color, (0, 0), (0, screen.get_height()), 1)  # Y轴
+        pygame.draw.line(screen, ruler_color, (0, 0), (screen.get_width(), 0), 1)  # X轴
+        
+        # 显示当前人物位置
+        pos_text = ruler_font.render(f"Pos: ({int(x)}, {int(y)})", True, (255, 255, 0))
+        pos_bg = pygame.Surface((pos_text.get_width() + 8, pos_text.get_height() + 4), pygame.SRCALPHA)
+        pos_bg.fill((0, 0, 0, 150))
+        screen.blit(pos_bg, (screen.get_width() - pos_text.get_width() - 12, screen.get_height() - 30))
+        screen.blit(pos_text, (screen.get_width() - pos_text.get_width() - 8, screen.get_height() - 28))
 
         info = font.render("WASD 或 箭头 移动 — Esc 退出", True, (255, 255, 255))
         # 在左上角绘制半透明底背景以确保可读性
