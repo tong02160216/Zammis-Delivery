@@ -6,7 +6,7 @@ import glob
 
 # 前景与背景图片的绝对路径（请确保文件存在）
 FOREGROUND_FRAMES_PATTERN = r"F:\code\zammi\Zammis-Delivery\zammi_*.png"
-BACKGROUND_PATH = Path(r"F:\code\zammi\88f67a263c51a072958e44b19ed723b3.png")
+BACKGROUND_PATH = Path(r"F:\code\zammi\Zammis-Delivery\88f67a263c51a072958e44b19ed723b3.png")
 VIDEO_PATH = Path(r"F:\code\zammi\Zammis-Delivery\875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
