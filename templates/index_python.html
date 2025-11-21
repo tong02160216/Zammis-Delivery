@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>壮咪咪的送信之旅 - Python版</title>
+    <style>
+        @font-face {
+            font-family: 'SourceHanSans';
+            src: url('/static/SourceHanSansCN-Bold.otf') format('opentype');
+        }
+        
+        @font-face {
+            font-family: 'LEDCounter';
+            src: url('/static/led_counter-7.ttf') format('truetype');
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'SourceHanSans', sans-serif;
+            background: #2c1e31;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: #f4e8c1;
+            border: 8px solid #3a2847;
+            padding: 40px;
+            box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        h1 {
+            font-size: 2em;
+            color: #d62828;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 4px 4px 0 #003049;
+        }
+        
+        .game-area {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .video-container {
+            position: relative;
+            background: #000;
+            border: 8px solid #003049;
+            box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+        }
+        
+        #video-feed {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .action-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .action-card {
+            background: #ef476f;
+            border: 6px solid #003049;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .action-image {
+            width: 150px;
+            height: 150px;
+            object-fit: contain;
+            border: 4px solid #003049;
+            border-radius: 10px;
+            margin: 10px auto;
+            display: block;
+        }
+        
+        .action-name {
+            font-size: 1.3em;
+            color: #ffd60a;
+            margin: 10px 0;
+            text-shadow: 3px 3px 0 #003049;
+        }
+        
+        .action-hint {
+            color: #fff;
+            font-size: 0.9em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        button {
+            background: #06d6a0;
+            color: #003049;
+            border: 4px solid #003049;
+            padding: 15px 30px;
+            font-size: 1em;
+            font-family: 'SourceHanSans', sans-serif;
+            cursor: pointer;
+            box-shadow: 6px 6px 0 #003049;
+            transition: all 0.1s;
+        }
+        
+        button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 4px 4px 0 #003049;
+        }
+        
+        button:active {
+            transform: translate(6px, 6px);
+            box-shadow: 0 0 0 #003049;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: #06d6a0;
+            border: 4px solid #003049;
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #003049;
+        }
+        
+        .status.success {
+            background: #06d6a0;
+            animation: pulse 0.5s;
+        }
+        
+        .hint-box {
+            background: #fff3cd;
+            border: 4px solid #856404;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+            color: #856404;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .timer {
+            font-family: 'LEDCounter', monospace;
+            font-size: 2em;
+            text-align: center;
+            color: #ffd60a;
+            background: #003049;
+            padding: 10px;
+            border: 4px solid #003049;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .story-scene {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .character-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .character-img {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 6px solid #003049;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 开始界面 -->
+        <div id="start-screen">
+            <h1>壮咪咪的送信之旅</h1>
+            <div style="text-align: center; line-height: 2; margin: 30px 0;">
+                <p>壮咪咪 (Zamimi) 在送信途中，路过一片热闹的草原。</p>
+                <p>这里正在举办"动物模仿秀"，许多长颈鹿和小动物都在参与。</p>
+                <p>主持长颈鹿 Gigi 邀请壮咪咪和路过的朋友们一起加入！</p>
+            </div>
+            <div class="controls">
+                <button onclick="startGame()">开始游戏</button>
+            </div>
+        </div>
+        
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="hidden">
+            <h1>动物模仿秀</h1>
+            <div class="timer" id="timer">时间: 5秒</div>
+            <div class="game-area">
+                <div class="video-container">
+                    <img id="video-feed" src="/video_feed" alt="摄像头画面">
+                </div>
+                <div class="action-panel">
+                    <div class="action-card">
+                        <img id="action-image" class="action-image" src="" alt="动物">
+                        <div class="action-name" id="action-name">准备中...</div>
+                        <div class="action-hint" id="action-hint">请模仿这个动作</div>
+                    </div>
+                    <div class="status" id="status">等待开始...</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="next-btn" onclick="nextRound()">开始第 1 个动作</button>
+            </div>
+        </div>
+        
+        <!-- 结束界面 -->
+        <div id="end-screen" class="hidden">
+            <h1>任务完成！</h1>
+            <div class="story-scene">
+                <div class="character-group">
+                    <img src="/static/images/小狗.jpg" class="character-img" alt="小狗">
+                    <img src="/static/images/长颈鹿.jpg" class="character-img" alt="长颈鹿">
+                    <img src="/static/images/小羚羊.jpg" class="character-img" alt="小羚羊">
+                    <img src="/static/images/小猪.jpg" class="character-img" alt="小猪">
+                </div>
+                <div style="line-height: 2; margin: 20px 0;">
+                    <p>壮咪咪在草原上和大家一起参加了有趣的模仿秀，现场气氛热烈。</p>
+                    <p>Gigi 非常开心地接过信，并送给壮咪咪一朵小花作为感谢。</p>
+                    <p>壮咪咪带着愉快的心情和新朋友的祝福，继续踏上送信的旅程！</p>
+                </div>
+            </div>
+            <div class="controls">
+                <button onclick="location.reload()">重新开始</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentRound = 0;
+        const totalRounds = 5;
+        let timeLeft = 5;
+        let timer = null;
+        let checkInterval = null;
+        
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+        }
+        
+        function nextRound() {
+            if (currentRound >= totalRounds) {
+                endGame();
+                return;
+            }
+            
+            // 开始新一轮
+            fetch(`/api/start_round/${currentRound}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('action-image').src = `/static/${data.action.image}`;
+                        document.getElementById('action-name').textContent = data.action.name;
+                        document.getElementById('action-hint').textContent = data.action.hint;
+                        document.getElementById('status').textContent = '开始模仿吧！';
+                        document.getElementById('status').className = 'status';
+                        
+                        // 禁用按钮
+                        document.getElementById('next-btn').disabled = true;
+                        
+                        // 开始倒计时
+                        timeLeft = 5;
+                        startTimer();
+                        
+                        // 开始检查动作
+                        startChecking();
+                    }
+                });
+        }
+        
+        function startTimer() {
+            clearInterval(timer);
+            updateTimer();
+            
+            timer = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+        
+        function updateTimer() {
+            document.getElementById('timer').textContent = `时间: ${timeLeft}秒`;
+        }
+        
+        function startChecking() {
+            clearInterval(checkInterval);
+            checkInterval = setInterval(() => {
+                fetch('/api/check_action')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.matched) {
+                            handleSuccess();
+                        }
+                    });
+            }, 500); // 每0.5秒检查一次
+        }
+        
+        function handleSuccess() {
+            clearInterval(timer);
+            clearInterval(checkInterval);
+            
+            const messages = ['好棒！', '太厉害了！', '完美！', '真棒！', '你真行！'];
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            
+            document.getElementById('status').textContent = message;
+            document.getElementById('status').className = 'status success';
+            
+            currentRound++;
+            
+            setTimeout(() => {
+                if (currentRound < totalRounds) {
+                    document.getElementById('next-btn').textContent = `下一个动作 (${currentRound + 1}/${totalRounds})`;
+                    document.getElementById('next-btn').disabled = false;
+                } else {
+                    endGame();
+                }
+            }, 2000);
+        }
+        
+        function handleTimeout() {
+            clearInterval(checkInterval);
+            document.getElementById('status').textContent = '时间到！不过没关系，继续加油！';
+            
+            currentRound++;
+            
+            setTimeout(() => {
+                if (currentRound < totalRounds) {
+                    document.getElementById('next-btn').textContent = `下一个动作 (${currentRound + 1}/${totalRounds})`;
+                    document.getElementById('next-btn').disabled = false;
+                } else {
+                    endGame();
+                }
+            }, 2000);
+        }
+        
+        function endGame() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
