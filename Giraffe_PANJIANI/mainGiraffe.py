@@ -4,16 +4,15 @@ import sys
 from pathlib import Path
 from PIL import Image
 import glob
+from importlib import import_module
 
-<<<<<<< HEAD:mainGiraffe.py
+# 动态导入 000firstfloor_pose 模块
+firstfloor_pose_module = import_module('000firstfloor_pose')
+FirstFloorPoseChallenge = firstfloor_pose_module.PoseChallenge
+
 # 前景与背景图片的相对路径（请确保文件存在）
 FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
-BACKGROUND_GIF_PATH = r"长颈鹿家.gif"
-=======
-# 前景与背景图片的绝对路径（请确保文件存在）
-FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
-BACKGROUND_FRAMES_PATTERN = r"assets/邮局背景图微动/邮局 - *.png"
->>>>>>> 0ed83c10df97a4464cc2034827c019a27c703858:main.py
+BACKGROUND_GIF_PATH = r"../长颈鹿家.gif"
 VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
@@ -132,9 +131,9 @@ def main():
 
     clock = pygame.time.Clock()
 
-    # 初始位置：zamimi 中心点在显示坐标 (100, 500)
+    # 初始位置：zamimi 中心点在显示坐标 (100, 510)
     fg = fg_frames[fg_current_frame]
-    center_x, center_y = 100, 500
+    center_x, center_y = 100, 510
     
     # 计算左上角坐标（blit 使用左上角坐标）
     x = center_x - fg.get_width() // 2
@@ -156,6 +155,9 @@ def main():
     show_box = False
     box_page = 0  # 0: first text, 1: second text
     box_rect = None
+    
+    # 姿态挑战状态标志
+    floor1_challenge_completed = False  # 一楼挑战是否已完成
 
     def play_video(path: Path):
         """播放视频（阻塞），播放结束或窗口关闭后返回。"""
@@ -283,9 +285,9 @@ def main():
                         (character_center_x, character_center_y + cross_size), 3)
         pygame.draw.circle(screen, (0, 255, 255), (character_center_x, character_center_y), 5, 2)
         
-        # 检测点固定在 (100, 600)
-        detect_x = 100
-        detect_y = 600
+        # 检测点偏移：向左40像素，向下100像素（与main.py相同）
+        detect_x = character_center_x - 40
+        detect_y = character_center_y + 100
 
         # 计算检测点与一楼触发点的距离
         dist_x = detect_x - floor1_trigger_x
@@ -310,6 +312,49 @@ def main():
         # 在首次碰撞时在控制台打印一条记录，便于确认触发
         if collided and not prev_collided:
             print(f"触发：distance={distance:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 一楼触发点=({floor1_trigger_x},{floor1_trigger_y})")
+            
+            # 触发一楼姿态挑战（仅触发一次）
+            if not floor1_challenge_completed:
+                print("\n=== 启动姿态挑战 ===")
+                # 暂停 pygame 以运行挑战
+                pygame.event.clear()
+                
+                try:
+                    challenge = FirstFloorPoseChallenge(
+                        target_image_path="../assets/4poses/strong_action.png",
+                        pose_config_name="strong_action",
+                        window_size=(1280, 720),
+                        next_challenge={
+                            "image": "../assets/4poses/RiseHighWithTwoHand.png",
+                            "config": "RiseHighWithTwoHand"
+                        }
+                    )
+                    challenge_success = challenge.run()
+                    
+                    if challenge_success:
+                        print("✅ 姿态挑战完成！")
+                        floor1_challenge_completed = True
+                        
+                        # 传送到二楼位置 - 红点(detect点)在 (580, 400)
+                        # detect_x = center_x - 40, detect_y = center_y + 100
+                        # 所以 center_x = 620, center_y = 300
+                        center_x = 620
+                        center_y = 300
+                        x = center_x - fg.get_width() // 2
+                        y = center_y - fg.get_height() // 2
+                        print(f"传送到二楼: 角色中心({center_x},{center_y}), 红点检测位置({center_x-40},{center_y+100})")
+                    else:
+                        print("❌ 姿态挑战未完成")
+                except Exception as e:
+                    print(f"姿态挑战错误: {e}")
+                    import traceback
+                    traceback.print_exc()
+                
+                print("=== 返回游戏 ===\n")
+                # 重新激活 pygame 窗口
+                pygame.display.set_mode((1280, 720))
+                pygame.display.set_caption("WASD 控制 — Esc 退出 | GIF 动画")
+                
         prev_collided = collided
         
         # 绘制一楿触发点标记（白色实心圆，较小的视觉半径）
@@ -318,33 +363,6 @@ def main():
         # 绘制二楿触发点标记（白色实心圆）
         pygame.draw.circle(screen, (255, 255, 255), (floor2_trigger_x, floor2_trigger_y), visual_radius)
         # 不再绘制白点周围的额外可视化圈（按要求）
-
-        # 根据碰撞设置文字框显示状态
-        show_box = collided
-
-        # 如果文字框可见，则绘制（支持分页）
-        if show_box:
-            # 白色框占满底部三分之一区域
-            h = screen.get_height() // 3
-            box_x = 0
-            box_y = screen.get_height() - h
-            box_w = screen.get_width()
-            box_rect = pygame.Rect(box_x, box_y, box_w, h)
-            # 绘制白色背景块
-            pygame.draw.rect(screen, (255, 255, 255), box_rect)
-
-            # 固定显示文字：玩家接触白色圆点时显示完成提示
-            text = "取信完毕"
-
-            # 大号字体，基于屏幕高度自适应
-            large_font_size = max(24, screen.get_height() // 12)
-            large_font = pygame.font.SysFont(None, large_font_size)
-            txt_surf = large_font.render(text, True, (0, 0, 0))
-
-            # 将文本居中显示在白色框内
-            txt_x = box_x + (box_w - txt_surf.get_width()) // 2
-            txt_y = box_y + (h - txt_surf.get_height()) // 2
-            screen.blit(txt_surf, (txt_x, txt_y))
 
         # 绘制坐标标尺
         ruler_font = pygame.font.SysFont(None, 16)
