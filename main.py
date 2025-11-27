@@ -5,9 +5,9 @@ from pathlib import Path
 import glob
 
 # 前景与背景图片的绝对路径（请确保文件存在）
-FOREGROUND_FRAMES_PATTERN = r"F:\code\zammi\Zammis-Delivery\zammi_*.png"
-BACKGROUND_FRAMES_PATTERN = r"F:\code\zammi\Zammis-Delivery\邮局 - *.png"
-VIDEO_PATH = Path(r"F:\code\zammi\Zammis-Delivery\875b55be8f5a0e72b6e28c650a49a795.mp4")
+FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
+BACKGROUND_FRAMES_PATTERN = r"assets/邮局背景图微动/邮局 - *.png"
+VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
 def load_image(path: Path):
