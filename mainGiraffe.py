@@ -110,11 +110,15 @@ def main():
     bg_frames = bg_frames_converted
     bg = bg_frames[0]
 
-    # 交互点参数（门口位置）
+    # 一楿触发点参数
     circle_radius = 40  # 触发判定半径（检测用，较宽松）
     visual_radius = 10  # 白色圆点的视觉半径（较小）
-    cx = 550  # X坐标在500-600之间
-    cy = 600  # Y坐标限制为500-700范围内，默认放在600
+    floor1_trigger_x = 550  # 一楿触发点 X 坐标
+    floor1_trigger_y = 600  # 一楿触发点 Y 坐标
+
+    # 二楼触发点参数
+    floor2_trigger_x = 1000  # 二楼触发点 X 坐标
+    floor2_trigger_y = 400   # 二楼触发点 Y 坐标
 
     # 窗口大小固定为 1280×720（与邮局图片相同）
     screen = pygame.display.set_mode((1280, 720))
@@ -277,9 +281,9 @@ def main():
         detect_x = 100
         detect_y = 600
 
-        # 计算检测点与交互点的距离
-        dist_x = detect_x - cx
-        dist_y = detect_y - cy
+        # 计算检测点与一楼触发点的距离
+        dist_x = detect_x - floor1_trigger_x
+        dist_y = detect_y - floor1_trigger_y
         distance = (dist_x ** 2 + dist_y ** 2) ** 0.5
 
         # 实际触发仅在玩家检测点触碰白点时发生
@@ -299,11 +303,14 @@ def main():
 
         # 在首次碰撞时在控制台打印一条记录，便于确认触发
         if collided and not prev_collided:
-            print(f"触发：distance={distance:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), dot=({cx},{cy})")
+            print(f"触发：distance={distance:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 一楼触发点=({floor1_trigger_x},{floor1_trigger_y})")
         prev_collided = collided
         
-        # 绘制交互点标记（白色实心圆，较小的视觉半径）
-        pygame.draw.circle(screen, (255, 255, 255), (cx, cy), visual_radius)
+        # 绘制一楿触发点标记（白色实心圆，较小的视觉半径）
+        pygame.draw.circle(screen, (255, 255, 255), (floor1_trigger_x, floor1_trigger_y), visual_radius)
+        
+        # 绘制二楿触发点标记（白色实心圆）
+        pygame.draw.circle(screen, (255, 255, 255), (floor2_trigger_x, floor2_trigger_y), visual_radius)
         # 不再绘制白点周围的额外可视化圈（按要求）
 
         # 根据碰撞设置文字框显示状态
