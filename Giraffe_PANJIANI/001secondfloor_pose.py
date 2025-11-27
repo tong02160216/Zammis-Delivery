@@ -44,8 +44,8 @@ class PoseChallenge:
             static_image_mode=False,
             model_complexity=1,
             smooth_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_detection_confidence=0.7,  # 提高检测置信度（0.5→0.7）
+            min_tracking_confidence=0.7    # 提高追踪置信度（0.5→0.7）
         )
         
         # 自定义连接 - 只显示主要身体部位（包括头部，不包括脸部细节）
@@ -546,12 +546,12 @@ def test_pose_challenge():
     """测试姿态挑战 - 两个连续动作"""
     # 配置两个动作的挑战
     challenge = PoseChallenge(
-        target_image_path="../assets/4poses/strong_action.png",
-        pose_config_name="strong_action",
+        target_image_path="../assets/4poses/RaiseHighWithOneHand.png",
+        pose_config_name="RaiseHighWithOneHand",
         window_size=(1280, 720),
         next_challenge={
-            "image": "../assets/4poses/RiseHighWithTwoHand.png",
-            "config": "RiseHighWithTwoHand"
+            "image": "../assets/4poses/CompareHearts.png",
+            "config": "CompareHearts"
         }
     )
     

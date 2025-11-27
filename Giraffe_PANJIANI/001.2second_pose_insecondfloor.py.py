@@ -18,13 +18,13 @@ WRIST_TOLERANCE = 60  # 手腕特殊容差
 # 当前 strong_action 的关键点配置（像素坐标）
 # 你可以直接修改这些数值，然后重新运行程序查看效果
 LANDMARKS = {
-    0:  [705, 270],    # 头部（鼻子）
-    11: [560, 430],    # 左肩
-    12: [800, 430],    # 右肩
-    13: [550, 270],    # 左肘（举高）
-    14: [830, 270],    # 右肘（举高）
-    15: [550, 50],     # 左手腕（举高）
-    16: [830, 50],     # 右手腕（举高）
+    0:  [700, 280],    # 头部（鼻子）
+    11: [560, 410],    # 左肩
+    12: [800, 410],    # 右肩
+    13: [480, 250],    # 左肘（举高）
+    14: [930, 250],    # 右肘（举高）
+    15: [670, 150],    # 左手腕（举高）
+    16: [705, 150],    # 右手腕（举高）
 }
 
 # 骨骼连接
@@ -37,7 +37,7 @@ BODY_CONNECTIONS = [
 
 def main():
     # 加载图片
-    image_path = "../assets/4poses/RiseHighWithTwoHand.png"
+    image_path = "../assets/4poses/CompareHearts.png"
     pil_img = Image.open(image_path)
     if pil_img.mode != 'RGBA':
         pil_img = pil_img.convert('RGBA')
