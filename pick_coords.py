@@ -295,21 +295,24 @@ def main():
 
         orig_w, orig_h = frame.width, frame.height
         print_and_flush(f"背景图原始分辨率：宽度{orig_w}像素 × 高度{orig_h}像素")
-        print_and_flush(f"图像缩放比例：{scale}（若需调整，可修改代码中scale变量）")
-
-        # 获取屏幕尺寸（使用 tkinter 临时 root）
-        root_tmp = tk.Tk()
-        root_tmp.withdraw()
-        screen_w = root_tmp.winfo_screenwidth()
-        screen_h = root_tmp.winfo_screenheight()
-        root_tmp.destroy()
-
-        display_img, applied_ratio = compute_display_image(frame, screen_w, screen_h, scale)
-
-        if applied_ratio < 1.0:
-            print_and_flush(f"已按屏幕适配并缩放显示，实际应用比例：{applied_ratio:.4f}")
-        else:
-            print_and_flush("图片尺寸可在屏幕内完整显示，未进行缩放（实际应用比例：1.0）")
+        
+        # 固定目标尺寸为 1280×720
+        target_w, target_h = 1280, 720
+        print_and_flush(f"目标显示尺寸：{target_w}×{target_h}")
+        
+        # 缩放到目标尺寸
+        try:
+            resample = Image.Resampling.LANCZOS
+        except Exception:
+            try:
+                resample = Image.LANCZOS
+            except Exception:
+                resample = Image.NEAREST
+        
+        display_img = frame.resize((target_w, target_h), resample=resample)
+        # 计算缩放比例（用于将显示坐标转换为原图坐标）
+        applied_ratio = target_w / orig_w
+        print_and_flush(f"缩放比例：{applied_ratio:.4f} (原图{orig_w}×{orig_h} -> 显示{target_w}×{target_h})")
 
         # 启动带点击事件的窗口
         try:

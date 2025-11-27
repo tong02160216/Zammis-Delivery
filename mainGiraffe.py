@@ -2,12 +2,13 @@ import pygame
 import cv2
 import sys
 from pathlib import Path
+from PIL import Image
 import glob
 
-# 前景与背景图片的绝对路径（请确保文件存在）
-FOREGROUND_FRAMES_PATTERN = r"F:\code\zammi\Zammis-Delivery\zammi_*.png"
-BACKGROUND_FRAMES_PATTERN = r"F:\code\zammi\Zammis-Delivery\邮局 - *.png"
-VIDEO_PATH = Path(r"F:\code\zammi\Zammis-Delivery\875b55be8f5a0e72b6e28c650a49a795.mp4")
+# 前景与背景图片的相对路径（请确保文件存在）
+FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
+BACKGROUND_GIF_PATH = r"长颈鹿家.gif"
+VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
 def load_image(path: Path):
@@ -36,14 +37,53 @@ def load_png_frames(pattern: str):
     return frames, durations
 
 
+def load_gif_frames(gif_path: str, target_size=(1280, 720)):
+    """加载 GIF 文件的所有帧并缩放到目标尺寸"""
+    if not Path(gif_path).exists():
+        raise FileNotFoundError(f"找不到GIF文件: {gif_path}")
+    
+    pil_img = Image.open(gif_path)
+    frames = []
+    durations = []
+    
+    try:
+        for i in range(getattr(pil_img, "n_frames", 1)):
+            pil_img.seek(i)
+            frame = pil_img.convert("RGBA")
+            # 缩放到目标尺寸
+            frame = frame.resize(target_size, Image.Resampling.LANCZOS)
+            mode = frame.mode
+            size = frame.size
+            data = frame.tobytes()
+            py_image = pygame.image.fromstring(data, size, mode)
+            frames.append(py_image)
+            # 获取帧持续时间（毫秒），默认 100ms
+            duration = pil_img.info.get('duration', 100)
+            durations.append(duration)
+    except Exception as e:
+        # 如果只有单帧或读取失败，至少返回第一帧
+        frame = pil_img.convert("RGBA")
+        # 缩放到目标尺寸
+        frame = frame.resize(target_size, Image.Resampling.LANCZOS)
+        mode = frame.mode
+        size = frame.size
+        data = frame.tobytes()
+        py_image = pygame.image.fromstring(data, size, mode)
+        frames.append(py_image)
+        durations.append(100)
+    
+    print(f"正在加载 GIF：{len(frames)} 帧，缩放至 {target_size[0]}×{target_size[1]}")
+    return frames, durations
+
+
 def main():
     pygame.init()
 
-    # 先创建临时窗口以便加载PNG帧
+    # 先创建临时窗口以便加载帧
     temp_screen = pygame.display.set_mode((100, 100))
     
-    # 加载背景序列帧动画（邮局）
-    bg_frames, bg_durations = load_png_frames(BACKGROUND_FRAMES_PATTERN)
+    # 加载背景 GIF 动画
+    bg_frames, bg_durations = load_gif_frames(BACKGROUND_GIF_PATH)
     bg_current_frame = 0
     bg_frame_timer = 0
     print(f"✅ 成功加载 {len(bg_frames)} 帧背景动画")
@@ -76,16 +116,21 @@ def main():
     cx = 550  # X坐标在500-600之间
     cy = 600  # Y坐标限制为500-700范围内，默认放在600
 
-    # 窗口大小与背景一致
-    screen = pygame.display.set_mode(bg.get_size())
+    # 窗口大小固定为 1280×720（与邮局图片相同）
+    screen = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("WASD 控制 — Esc 退出 | GIF 动画")
 
     clock = pygame.time.Clock()
 
-    # 初始位置在画面最左边（使用第一帧获取尺寸）
+    # 初始位置：zamimi 中心点在显示坐标 (100, 500)
     fg = fg_frames[fg_current_frame]
-    x = 0  # 放置在最左边
-    y = (screen.get_height() - fg.get_height()) // 2
+    center_x, center_y = 100, 500
+    
+    # 计算左上角坐标（blit 使用左上角坐标）
+    x = center_x - fg.get_width() // 2
+    y = center_y - fg.get_height() // 2
+    
+    print(f"Zamimi初始位置: 中心点({center_x},{center_y}) -> 左上角({x},{y}), 尺寸({fg.get_width()}x{fg.get_height()})")
 
     # 运动参数（每帧即时响应的简单实现，参考示例）
     speed = 5  # 每帧移动像素（可调整，增大使移动更灵敏）
@@ -187,24 +232,23 @@ def main():
             fg = fg_frames[fg_current_frame]
         
         keys = pygame.key.get_pressed()
-        # WASD 或 箭头 - 每帧固定位移
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+        # A/D 左右移动 - 调试所有按键
+        if any(keys):  # 如果有任何按键被按下
+            pressed_keys = [i for i, key in enumerate(keys) if key]
+            if len(pressed_keys) > 0 and len(pressed_keys) < 10:  # 避免输出过多
+                print(f"检测到按键: {pressed_keys[:5]}")
+        
+        old_x = x
+        # pygame.K_a 是 97, pygame.K_d 是 100
+        if keys[pygame.K_a]:
             x -= speed
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            print(f"按下A键(97): x从{old_x}变为{x}")
+        if keys[pygame.K_d]:
             x += speed
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            y -= speed
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            y += speed
+            print(f"按下D键(100): x从{old_x}变为{x}")
 
-        # Y轴边界限制：始终生效，将角色中心 Y 限制在 500 到 700 之间
-        # 计算角色中心点对应的左上角 y 可取范围
-        half_height = fg.get_height() // 2
-        min_y = 500 - half_height  # 中心点最小值对应的左上角Y坐标
-        max_y = 700 - half_height  # 中心点最大值对应的左上角Y坐标
-        y = max(min_y, min(max_y, y))
-        # 同时确保交互点（蓝色圆圈）Y 坐标在 500-700 范围内
-        cy = max(500, min(700, cy))
+        # X轴边界限制：保持在屏幕范围内
+        x = max(0, min(screen.get_width() - fg.get_width(), x))
 
         # 绘制背景（循环播放的邮局序列帧）
         screen.fill((50, 50, 50))
@@ -218,9 +262,20 @@ def main():
         # 碰撞检测:使用角色中心点作为检测点
         character_center_x = int(x) + fg.get_width() // 2
         character_center_y = int(y) + fg.get_height() // 2
-        # 检测点偏移：向左40像素，向下100像素
-        detect_x = character_center_x - 40
-        detect_y = character_center_y + 100
+        
+        # 绘制 zamimi 中心点标记（蓝色十字）以验证位置
+        cross_size = 10
+        pygame.draw.line(screen, (0, 255, 255), 
+                        (character_center_x - cross_size, character_center_y), 
+                        (character_center_x + cross_size, character_center_y), 3)
+        pygame.draw.line(screen, (0, 255, 255), 
+                        (character_center_x, character_center_y - cross_size), 
+                        (character_center_x, character_center_y + cross_size), 3)
+        pygame.draw.circle(screen, (0, 255, 255), (character_center_x, character_center_y), 5, 2)
+        
+        # 检测点固定在 (100, 600)
+        detect_x = 100
+        detect_y = 600
 
         # 计算检测点与交互点的距离
         dist_x = detect_x - cx
