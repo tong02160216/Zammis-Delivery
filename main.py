@@ -4,10 +4,10 @@ import sys
 from pathlib import Path
 import glob
 
-# 前景与背景图片的绝对路径（请确保文件存在）
-FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
-BACKGROUND_FRAMES_PATTERN = r"assets/bg1/p*.png"
-VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
+# 前景与背景图片的相对路径（请确保文件存在）
+FOREGROUND_FRAMES_PATTERN = "zammi_*.png"
+BACKGROUND_FRAMES_PATTERN = "assets/bg1/p*.png"
+VIDEO_PATH = Path("875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
 def load_image(path: Path):
