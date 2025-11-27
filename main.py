@@ -6,7 +6,7 @@ import glob
 
 # 前景与背景图片的绝对路径（请确保文件存在）
 FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
-BACKGROUND_FRAMES_PATTERN = r"assets/邮局背景图微动/邮局 - *.png"
+BACKGROUND_FRAMES_PATTERN = r"assets/bg1/p*.png"
 VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
@@ -57,14 +57,17 @@ def main():
     # 获取第一帧背景作为基础
     bg = bg_frames[0]
     
-    # 转换背景加速显示
+    # 转换并缩小背景加速显示（缩放为原来的三分之二）
     bg_frames_converted = []
     for frame in bg_frames:
         try:
-            if getattr(frame, 'get_alpha', lambda: None)() is not None or frame.get_bitsize() == 32:
-                bg_frames_converted.append(frame.convert_alpha())
+            w, h = frame.get_width(), frame.get_height()
+            new_size = (int(w * 2 / 3), int(h * 2 / 3))
+            scaled = pygame.transform.smoothscale(frame, new_size)
+            if getattr(scaled, 'get_alpha', lambda: None)() is not None or scaled.get_bitsize() == 32:
+                bg_frames_converted.append(scaled.convert_alpha())
             else:
-                bg_frames_converted.append(frame.convert())
+                bg_frames_converted.append(scaled.convert())
         except Exception:
             bg_frames_converted.append(frame)
     bg_frames = bg_frames_converted
@@ -101,6 +104,7 @@ def main():
     show_box = False
     box_page = 0  # 0: first text, 1: second text
     box_rect = None
+    box_manual_hide = False  # 玩家主动收起文字框后，保持隐藏直到离开碰撞区
 
     def play_video(path: Path):
         """播放视频（阻塞），播放结束或窗口关闭后返回。"""
@@ -152,23 +156,18 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # 鼠标左键点击时，如果文字框可见并且点击在框内，则翻页或播放视频
+                # 鼠标左键点击时，如果文字框可见并且点击在框内，则收起文字框
                 if event.button == 1 and show_box:
                     mx, my = event.pos
                     try:
-                        # 重新计算文字框区域以确保判定与绘制一致
                         h = screen.get_height() // 3
                         bx = 0
                         by = screen.get_height() - h
                         bw = screen.get_width()
                         if bx <= mx <= bx + bw and by <= my <= by + h:
-                            # 如果在第二页，点击则播放视频并在播放后隐藏文字框
-                            if box_page == 1:
-                                play_video(VIDEO_PATH)
-                                show_box = False
-                                box_page = 0
-                            else:
-                                box_page = 1
+                            show_box = False
+                            box_page = 0
+                            box_manual_hide = True
                     except Exception:
                         pass
 
@@ -252,7 +251,12 @@ def main():
         # 不再绘制白点周围的额外可视化圈（按要求）
 
         # 根据碰撞设置文字框显示状态
-        show_box = collided
+        if collided:
+            if not box_manual_hide:
+                show_box = True
+        else:
+            show_box = False
+            box_manual_hide = False
 
         # 如果文字框可见，则绘制（支持分页）
         if show_box:
@@ -266,7 +270,7 @@ def main():
             pygame.draw.rect(screen, (255, 255, 255), box_rect)
 
             # 固定显示文字：玩家接触白色圆点时显示完成提示
-            text = "取信完毕"
+            text = "Letters delivered! Let's visit the animals' home now~"
 
             # 大号字体，基于屏幕高度自适应
             large_font_size = max(24, screen.get_height() // 12)
