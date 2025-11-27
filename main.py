@@ -260,27 +260,29 @@ def main():
 
         # 如果文字框可见，则绘制（支持分页）
         if show_box:
-            # 白色框占满底部三分之一区域
-            h = screen.get_height() // 3
-            box_x = 0
-            box_y = screen.get_height() - h
-            box_w = screen.get_width()
-            box_rect = pygame.Rect(box_x, box_y, box_w, h)
-            # 绘制白色背景块
-            pygame.draw.rect(screen, (255, 255, 255), box_rect)
+            # 取消白色底框，只显示缩小后的对话框图片，并将文字缩小后居中绘制在图片内
+            try:
+                box_w = screen.get_width()
+                h = screen.get_height() // 3
+                dialogue_img = pygame.image.load("assets/Dialogue box materials/beginning_Post Office Dialogue Box.png").convert_alpha()
+                dw = int(box_w * 0.8)
+                dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                dx = (box_w - dw) // 2
+                dy = screen.get_height() - dh
+                screen.blit(dialogue_img, (dx, dy))
 
-            # 固定显示文字：玩家接触白色圆点时显示完成提示
-            text = "Letters delivered! Let's visit the animals' home now~"
-
-            # 大号字体，基于屏幕高度自适应
-            large_font_size = max(24, screen.get_height() // 12)
-            large_font = pygame.font.SysFont(None, large_font_size)
-            txt_surf = large_font.render(text, True, (0, 0, 0))
-
-            # 将文本居中显示在白色框内
-            txt_x = box_x + (box_w - txt_surf.get_width()) // 2
-            txt_y = box_y + (h - txt_surf.get_height()) // 2
-            screen.blit(txt_surf, (txt_x, txt_y))
+                # 缩小文字，居中绘制在图片内
+                text = "Letters delivered! Let's visit the animals' home now~"
+                # 字体再减小两倍（高度的1/20），最小8
+                font_size = max(8, dh // 20)
+                txt_font = pygame.font.SysFont(None, font_size)
+                txt_surf = txt_font.render(text, True, (0, 0, 0))
+                txt_x = dx + (dw - txt_surf.get_width()) // 2 - 40  # 再向左移动20像素，总共左移40
+                txt_y = dy + (dh - txt_surf.get_height()) // 2 + 200
+                screen.blit(txt_surf, (txt_x, txt_y))
+            except Exception as e:
+                print(f"对话框图片或文字绘制失败: {e}")
 
         # 绘制坐标标尺
         ruler_font = pygame.font.SysFont(None, 16)
