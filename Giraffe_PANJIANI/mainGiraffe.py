@@ -267,45 +267,6 @@ def main():
     except Exception as e:
         print(f"❌ 加载对话框图片失败: {e}")
 
-    def play_video(path: Path):
-        """播放视频（阻塞），播放结束或窗口关闭后返回。"""
-        if not path.exists():
-            print(f"找不到视频文件: {path}")
-            return
-        cap = cv2.VideoCapture(str(path))
-        if not cap.isOpened():
-            print(f"无法打开视频: {path}")
-            return
-
-        # 获取视频信息
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        delay = int(1000 / fps)
-
-        print(f"开始播放视频: {path}")
-        while True:
-            for ev in pygame.event.get():
-                if ev.type == pygame.QUIT:
-                    cap.release()
-                    pygame.quit()
-                    sys.exit(0)
-
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # BGR -> RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # 转为 surface
-            surf = pygame.image.frombuffer(frame.tobytes(), (frame.shape[1], frame.shape[0]), 'RGB')
-            # 缩放到窗口大小
-            surf = pygame.transform.smoothscale(surf, screen.get_size())
-            screen.blit(surf, (0, 0))
-            pygame.display.flip()
-            pygame.time.delay(delay)
-
-        cap.release()
-        print(f"视频播放结束: {path}")
-        return
 
     running = True
     prev_collided = False
@@ -332,19 +293,12 @@ def main():
                 elif event.button == 1 and show_box:
                     mx, my = event.pos
                     try:
-                        # 重新计算文字框区域以确保判定与绘制一致
                         h = screen.get_height() // 3
                         bx = 0
                         by = screen.get_height() - h
                         bw = screen.get_width()
                         if bx <= mx <= bx + bw and by <= my <= by + h:
-                            # 如果在第二页，点击则播放视频并在播放后隐藏文字框
-                            if box_page == 1:
-                                play_video(VIDEO_PATH)
-                                show_box = False
-                                box_page = 0
-                            else:
-                                box_page = 1
+                            box_page = 1
                     except Exception:
                         pass
 
