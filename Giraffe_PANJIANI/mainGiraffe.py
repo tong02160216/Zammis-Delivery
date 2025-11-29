@@ -57,7 +57,7 @@ SecondFloorPoseChallenge = secondfloor_pose_module.PoseChallenge
 
 
 # 前景与背景图片的路径（确保 GIF 路径为当前脚本同目录下）
-FOREGROUND_FRAMES_PATTERN = str(Path(__file__).parent.parent / "assets" / "bg1" / "zammi_*.png")
+FOREGROUND_FRAMES_PATTERN = str(Path(__file__).parent.parent / "zammi_*.png")
 BACKGROUND_GIF_PATH = str(Path(__file__).parent / "giraffe home.gif")
 VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
@@ -246,21 +246,19 @@ def main():
     dialogue_page = 0  # 0: 第一页(Sleeping), 1: 第二页(Awakened), 2: 第三页(Happy)
     
     try:
-        dialogue_box_path1 = Path("../assets/Dialogue box materials/Giraffe Dialogue Box1_Sleeping.png")
+        dialogue_box_path1 = Path("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box1_Sleeping_New.png")
         if dialogue_box_path1.exists():
             dialogue_box_img1 = pygame.image.load(str(dialogue_box_path1)).convert_alpha()
             print(f"✅ 已加载对话框图片1: {dialogue_box_img1.get_size()}")
         else:
             print(f"❌ 找不到对话框图片1: {dialogue_box_path1}")
-            
-        dialogue_box_path2 = Path("../assets/Dialogue box materials/Giraffe Dialogue Box2_Awakened.png")
+        dialogue_box_path2 = Path("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box2_Awakened_New.png")
         if dialogue_box_path2.exists():
             dialogue_box_img2 = pygame.image.load(str(dialogue_box_path2)).convert_alpha()
             print(f"✅ 已加载对话框图片2: {dialogue_box_img2.get_size()}")
         else:
             print(f"❌ 找不到对话框图片2: {dialogue_box_path2}")
-            
-        dialogue_box_path3 = Path("../assets/Dialogue box materials/Giraffe Dialogue Box3_Happy.png")
+        dialogue_box_path3 = Path("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box3_Happy_New.png")
         if dialogue_box_path3.exists():
             dialogue_box_img3 = pygame.image.load(str(dialogue_box_path3)).convert_alpha()
             print(f"✅ 已加载对话框图片3: {dialogue_box_img3.get_size()}")
@@ -514,13 +512,10 @@ def main():
         # 在首次碰撞二楼触发点时触发挑战（仅触发一次）
         if collided_floor2 and not prev_collided_floor2:
             print(f"触发二楼：distance={distance_floor2:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 二楼触发点=({floor2_trigger_x},{floor2_trigger_y})")
-            
             # 触发二楼姿态挑战（仅触发一次）
             if not floor2_challenge_completed:
                 print("\n=== 启动二楼姿态挑战 ===")
-                # 暂停 pygame 以运行挑战
                 pygame.event.clear()
-                
                 try:
                     challenge = SecondFloorPoseChallenge(
                         target_image_path="../assets/4poses/RaiseHighWithOneHand.png",
@@ -532,19 +527,17 @@ def main():
                         }
                     )
                     challenge_success = challenge.run()
-                    
                     if challenge_success:
                         print("✅ 二楼姿态挑战完成！")
                         floor2_challenge_completed = True
+                        dialogue_page = 0  # 立即显示第一页对话框
                     else:
                         print("❌ 二楼姿态挑战未完成")
                 except Exception as e:
                     print(f"二楼姿态挑战错误: {e}")
                     import traceback
                     traceback.print_exc()
-                
                 print("=== 返回游戏 ===\n")
-                # 重新激活 pygame 窗口
                 pygame.display.set_mode((1280, 720))
                 pygame.display.set_caption("WASD 控制 — Esc 退出 | GIF 动画")
         

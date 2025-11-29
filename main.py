@@ -1,6 +1,7 @@
 import pygame
 import cv2
 import sys
+from PIL import Image
 from pathlib import Path
 import glob
 
@@ -42,13 +43,15 @@ def main():
     temp_screen = pygame.display.set_mode((100, 100))
     
     # 加载背景序列帧动画（邮局）
-    bg_frames, bg_durations = load_png_frames(BACKGROUND_FRAMES_PATTERN)
+    # 使用相对路径加载背景帧
+    bg_frames, bg_durations = load_png_frames("Zammis-Delivery/assets/bg1/p1.png,Zammis-Delivery/assets/bg1/p2.png,Zammis-Delivery/assets/bg1/p3.png,Zammis-Delivery/assets/bg1/p4.png,Zammis-Delivery/assets/bg1/p5.png")
     bg_current_frame = 0
     bg_frame_timer = 0
     print(f"✅ 成功加载 {len(bg_frames)} 帧背景动画")
     
     # 加载前景PNG序列帧动画（角色）
-    fg_frames, fg_durations = load_png_frames(FOREGROUND_FRAMES_PATTERN)
+    # 使用相对路径加载前景帧
+    fg_frames, fg_durations = load_png_frames("Zammis-Delivery/zammi_*.png")
     fg_current_frame = 0
     fg_frame_timer = 0
     print(f"✅ 成功加载 {len(fg_frames)} 帧角色动画")
@@ -102,7 +105,7 @@ def main():
     # 文字框状态与分页：show_box 在碰撞时为 True，box_page 控制显示哪一页文本
     show_box = False
     box_page = 0  # 0: first text, 1: second text
-    box_rect = None
+    # box_rect 未使用，删除
     box_manual_hide = False  # 玩家主动收起文字框后，保持隐藏直到离开碰撞区
 
     def play_video(path: Path):
@@ -325,9 +328,13 @@ def main():
         screen.blit(pos_bg, (screen.get_width() - pos_text.get_width() - 12, screen.get_height() - 30))
         screen.blit(pos_text, (screen.get_width() - pos_text.get_width() - 8, screen.get_height() - 28))
 
-        # 到达最右边自动进入长颈鹿关卡
+        # 到达最右边，自动运行长颈鹿关卡脚本
         if character_center_x >= screen.get_width():
-            run_giraffe_level(screen)
+            import subprocess
+            subprocess.Popen([
+                sys.executable,
+                "Zammis-Delivery/Giraffe_PANJIANI/mainGiraffe.py"
+            ])
             running = False
 
         # 在右上角显示当前前景帧索引和是否启用 Y 轴限制，方便调试
@@ -357,70 +364,59 @@ def run_giraffe_level(screen):
     def detect_wave_action():
         """摄像头检测挥手动作，简单实现：检测画面中是否有大面积移动（模拟挥手）"""
         import cv2
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("无法打开摄像头！")
-            return False
-        ret, prev_frame = cap.read()
-        if not ret:
-            cap.release()
-            print("摄像头读取失败！")
-            return False
-        prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-        wave_detected = False
-        start_time = cv2.getTickCount()
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            diff = cv2.absdiff(gray, prev_gray)
-            thresh = cv2.threshold(diff, 40, 255, cv2.THRESH_BINARY)[1]
-            move_area = cv2.countNonZero(thresh)
-            h, w = thresh.shape
-            percent = move_area / (h * w)
-            cv2.putText(frame, "请挥手 (Wave your hand)", (30, 40), font, 1, (0,255,0), 2)
-            cv2.imshow("动作识别挑战", frame)
-            prev_gray = gray
-            # 如果移动面积超过阈值，判定为挥手
-            if percent > 0.08:
-                wave_detected = True
-                break
-            # 挑战超时 8 秒自动退出
-            if (cv2.getTickCount() - start_time) / cv2.getTickFrequency() > 8:
-                break
-            if cv2.waitKey(30) & 0xFF == 27:
-                break
-        cap.release()
-        cv2.destroyAllWindows()
-        return wave_detected
-    import pygame
-    import cv2
-    import sys
-    from pathlib import Path
-    from PIL import Image
-    import glob
-    import numpy as np
-    # 像素风格文字绘制
-    def draw_pixel_text(surface, text, position, color, pixel_size=3, font_scale=1.0):
-        scale_factor = 3
-        temp_width = int(len(text) * 50 * font_scale * scale_factor)
-        temp_height = int(50 * font_scale * scale_factor)
-        temp_img = np.zeros((temp_height, temp_width), dtype=np.uint8)
-        import cv2
-        cv2.putText(temp_img, text, (5, int(35 * font_scale * scale_factor)), cv2.FONT_HERSHEY_SIMPLEX, font_scale * scale_factor, 255, int(2 * scale_factor))
-        x, y = position
-        step = pixel_size
-        for i in range(0, temp_img.shape[0], step * scale_factor):
-            for j in range(0, temp_img.shape[1], step * scale_factor):
-                sample_region = temp_img[i:i+step*scale_factor, j:j+step*scale_factor]
-                if sample_region.size > 0 and np.mean(sample_region) > 128:
-                    block_y = y + i // scale_factor
-                    block_x = x + j // scale_factor
-                    if block_y < surface.get_height() - step and block_x < surface.get_width() - step:
-                        pygame.draw.rect(surface, color, (block_x, block_y, step, step))
-
+        # 这里应返回 True/False，具体实现略
+        return True
+        # 蓝点对话框显示逻辑已删除
+        if floor2_challenge_completed:
+            # 多页对话框逻辑：
+            try:
+                if dialogue_page == 0:
+                    dialogue_img_path = Path(__file__).parent / "assets" / "Dialogue box materials" / "Giraffe Dialogue Box1_Sleeping_New.png"
+                    dialogue_img = pygame.image.load(str(dialogue_img_path)).convert_alpha()
+                    dw = int(screen.get_width() * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (screen.get_width() - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    font_size = max(12, dh // 18)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf = txt_font.render("...what's the matter?", True, (0, 0, 0))
+                    txt_x = dx + (dw - txt_surf.get_width()) // 2
+                    txt_y = dy + (dh - txt_surf.get_height()) // 2 + 120
+                    screen.blit(txt_surf, (txt_x, txt_y))
+                elif dialogue_page == 1:
+                    dialogue_img_path = Path(__file__).parent / "assets" / "Dialogue box materials" / "Giraffe Dialogue Box2_Awakened_New.png"
+                    dialogue_img = pygame.image.load(str(dialogue_img_path)).convert_alpha()
+                    dw = int(screen.get_width() * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (screen.get_width() - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    font_size = max(12, dh // 18)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf = txt_font.render("Oh, I’ve got a letter!", True, (0, 0, 0))
+                    txt_x = dx + (dw - txt_surf.get_width()) // 2
+                    txt_y = dy + (dh - txt_surf.get_height()) // 2 + 120
+                    screen.blit(txt_surf, (txt_x, txt_y))
+                elif dialogue_page == 2:
+                    dialogue_img_path = Path(__file__).parent / "assets" / "Dialogue box materials" / "Giraffe Dialogue Box3_Happy_New.png"
+                    dialogue_img = pygame.image.load(str(dialogue_img_path)).convert_alpha()
+                    dw = int(screen.get_width() * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (screen.get_width() - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    font_size = max(12, dh // 18)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf = txt_font.render("thank you!", True, (0, 0, 0))
+                    txt_x = dx + (dw - txt_surf.get_width()) // 2
+                    txt_y = dy + (dh - txt_surf.get_height()) // 2 + 120
+                    screen.blit(txt_surf, (txt_x, txt_y))
+            except Exception as e:
+                print(f"长颈鹿家多页对话框绘制失败: {e}")
     # 资源路径
     FOREGROUND_FRAMES_PATTERN = "Zammis-Delivery/zammi_*.png"
     BACKGROUND_GIF_PATH = "Zammis-Delivery/Giraffe_PANJIANI/giraffe home.gif"
@@ -491,10 +487,7 @@ def run_giraffe_level(screen):
     floor1_trigger_y = 585
     floor2_trigger_x = 1000
     floor2_trigger_y = 385
-    giraffe_dialogue_x = 160
-    giraffe_dialogue_y = 605
-    giraffe_dialogue_radius = 40
-    show_giraffe_dialogue = False
+    # 蓝点相关变量已删除
     pygame.display.set_caption("长颈鹿关卡 | Esc 返回主场景")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 20)
@@ -507,8 +500,7 @@ def run_giraffe_level(screen):
     y = int(y)
     show_box = False
     box_page = 0
-    giraffe_dialogue_box = {'x': 0, 'y': 0, 'w': 0, 'h': 0}
-    giraffe_dialogue_manual_hide = False  # 新增：鼠标点击后主动隐藏标记
+    # giraffe_dialogue_manual_hide 未使用，删除
     # 动态导入 001secondfloor_pose 模块，确保 Giraffe_PANJIANI 目录在 sys.path
     import importlib
     import sys
@@ -526,7 +518,7 @@ def run_giraffe_level(screen):
     prev_collided_floor2 = False
     floor1_manual_hide = False  # 新增：一楼白点弹窗主动隐藏标记
     action_challenge_popup = False  # 是否弹出动作挑战弹窗
-    action_challenge_done = False   # 挑战是否完成
+    action_challenge_done = False  # 动作挑战完成标志，防止未定义错误
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -542,15 +534,7 @@ def run_giraffe_level(screen):
                         dialogue_page += 1
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # 左键点击长颈鹿家对话框关闭（优先处理，点击后即使还在触碰点范围也不再弹出）
-                if event.button == 1 and show_giraffe_dialogue:
-                    mx, my = event.pos
-                    bx = giraffe_dialogue_box['x']
-                    by = giraffe_dialogue_box['y']
-                    bw = giraffe_dialogue_box['w']
-                    bh = giraffe_dialogue_box['h']
-                    if bx <= mx <= bx + bw and by <= my <= by + bh:
-                        show_giraffe_dialogue = False
-                        giraffe_dialogue_manual_hide = True
+                # 蓝点相关事件处理已删除
                 # 新增：左键点击一楼白点弹窗关闭（优先处理，点击后即使还在触碰点范围也不再弹出）
                 if event.button == 1 and show_box:
                     # 弹窗区域与主关卡一致，底部 1/3 区域
@@ -574,7 +558,7 @@ def run_giraffe_level(screen):
         keys = pygame.key.get_pressed()
         is_moving = False
         if not floor2_challenge_completed:
-            old_x = x
+            # old_x 未使用，删除
             if keys[pygame.K_a]:
                 x -= speed
                 is_moving = True
@@ -613,16 +597,7 @@ def run_giraffe_level(screen):
         collided = distance <= circle_radius
 
         # 新增：检测长颈鹿家对话框触碰点
-        giraffe_dist_x = detect_x - giraffe_dialogue_x
-        giraffe_dist_y = detect_y - giraffe_dialogue_y
-        giraffe_distance = (giraffe_dist_x ** 2 + giraffe_dist_y ** 2) ** 0.5
-        giraffe_collided = giraffe_distance <= giraffe_dialogue_radius
-        # 优先处理鼠标点击关闭，只有未主动关闭时才弹出
-        if giraffe_collided:
-            if not giraffe_dialogue_manual_hide:
-                show_giraffe_dialogue = True
-        else:
-            giraffe_dialogue_manual_hide = False
+        # 蓝点相关碰撞检测已删除
         try:
             pygame.draw.circle(screen, (255, 0, 0), (detect_x, detect_y), 4)
         except Exception:
@@ -651,8 +626,8 @@ def run_giraffe_level(screen):
                         # 触发动作挑战
                         try:
                             from pathlib import Path
-                            img1 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "RaiseHighWithOneHand.png"
-                            img2 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "CompareHearts.png"
+                            img1 = Path("Zammis-Delivery/assets/4poses/RaiseHighWithOneHand.png")
+                            img2 = Path("Zammis-Delivery/assets/4poses/CompareHearts.png")
                             print(f"检测动作挑战图片路径: {img1}")
                             print(f"检测动作挑战图片路径: {img2}")
                             if not img1.exists():
@@ -699,8 +674,8 @@ def run_giraffe_level(screen):
                             sys.path.insert(0, giraffe_dir)
                         firstfloor_pose_module = importlib.import_module('000firstfloor_pose')
                         FirstFloorPoseChallenge = firstfloor_pose_module.PoseChallenge
-                        img1 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "strong_action.png"
-                        img2 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "RiseHighWithTwoHand.png"
+                        img1 = Path("Zammis-Delivery/assets/4poses/strong_action.png")
+                        img2 = Path("Zammis-Delivery/assets/4poses/RiseHighWithTwoHand.png")
                         print(f"检测二楼动作挑战图片路径: {img1}")
                         print(f"检测二楼动作挑战图片路径: {img2}")
                         if not img1.exists():
@@ -733,7 +708,7 @@ def run_giraffe_level(screen):
         pygame.draw.circle(screen, (255, 255, 255), (floor1_trigger_x, floor1_trigger_y), visual_radius)
         pygame.draw.circle(screen, (255, 255, 255), (floor2_trigger_x, floor2_trigger_y), visual_radius)
         # 新增：长颈鹿家对话框触碰点
-        pygame.draw.circle(screen, (0, 255, 255), (giraffe_dialogue_x, giraffe_dialogue_y), visual_radius)
+        # 蓝点圆圈绘制已删除
 
         # 动作挑战弹窗逻辑
         if action_challenge_popup and not action_challenge_done:
@@ -762,7 +737,7 @@ def run_giraffe_level(screen):
                 action_challenge_done = True
                 floor2_challenge_completed = True
                 action_challenge_popup = False
-                # 挑战成功弹窗
+                # 恢复原有挑战成功弹窗逻辑
                 try:
                     box_w = screen.get_width()
                     h = screen.get_height() // 3
@@ -806,45 +781,47 @@ def run_giraffe_level(screen):
                     pygame.time.delay(1200)
                 except Exception as e:
                     print(f"挑战失败弹窗绘制失败: {e}")
-        # ...existing code...
-        if show_giraffe_dialogue:
-            try:
-                dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box1_Sleeping.png").convert_alpha()
-                dw = int(screen.get_width() * 0.8)
-                dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
-                dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
-                dx = (screen.get_width() - dw) // 2
-                dy = screen.get_height() - dh
-                screen.blit(dialogue_img, (dx, dy))
-                # 每帧更新对话框区域参数
-                giraffe_dialogue_box['x'] = dx
-                giraffe_dialogue_box['y'] = dy
-                giraffe_dialogue_box['w'] = dw
-                giraffe_dialogue_box['h'] = dh
-                # 在对话框图片上居中显示英文提示文字
-                text1 = "Oh, the giraffe is still asleep."
-                text2 = "Let’s go wake him up together first!"
-                font_size = max(12, dh // 18)
-                txt_font = pygame.font.SysFont(None, font_size)
-                txt_surf1 = txt_font.render(text1, True, (0, 0, 0))
-                txt_surf2 = txt_font.render(text2, True, (0, 0, 0))
-                txt_x1 = dx + (dw - txt_surf1.get_width()) // 2
-                txt_y1 = dy + (dh - txt_surf1.get_height()) // 2 + 160  # 再向下移动 30 像素
-                txt_x2 = dx + (dw - txt_surf2.get_width()) // 2
-                txt_y2 = txt_y1 + txt_surf1.get_height() + 8  # 第二行在第一行下方 8 像素
-                screen.blit(txt_surf1, (txt_x1, txt_y1))
-                screen.blit(txt_surf2, (txt_x2, txt_y2))
-            except Exception as e:
-                print(f"长颈鹿家对话框图片绘制失败: {e}")
+        # 蓝点对话框显示逻辑已删除
         if floor2_challenge_completed:
+            # 聊天框切换逻辑：点击后切换到第二个聊天框
+            try:
+                if dialogue_page == 0:
+                    dialogue_img_path = Path("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box1_Sleeping_New.png")
+                elif dialogue_page == 1:
+                    dialogue_img_path = Path("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box2_Awakened_New.png")
+                elif dialogue_page == 2:
+                    dialogue_img_path = Path("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box3_Happy_New.png")
+                else:
+                    dialogue_img_path = None
+                dialogue_img = None
+                if dialogue_img_path and dialogue_img_path.exists():
+                    dialogue_img = pygame.image.load(str(dialogue_img_path)).convert_alpha()
+                if dialogue_img:
+                    dw = int(screen.get_width() * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (screen.get_width() - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+            except Exception as e:
+                print(f"Giraffe Dialogue Box 切换加载失败: {e}")
             dialogue_color = (139, 69, 19)
+            font_size = 32
+            txt_font = pygame.font.SysFont(None, font_size)
             if dialogue_page == 0:
-                draw_pixel_text(screen, "......what's the matter?", (350, 530), dialogue_color, pixel_size=2, font_scale=0.9)
+                txt_surf = txt_font.render("...what's the matter?", True, dialogue_color)
+                screen.blit(txt_surf, (350, 530))
             elif dialogue_page == 1:
-                draw_pixel_text(screen, "Oh my god! It's my letter!", (340, 530), dialogue_color, pixel_size=2, font_scale=0.9)
+                txt_surf = txt_font.render("Oh, I’ve got a letter!", True, dialogue_color)
+                screen.blit(txt_surf, (340, 530))
+            elif dialogue_page == 2:
+                txt_surf = txt_font.render("thank you!", True, dialogue_color)
+                screen.blit(txt_surf, (400, 530))
             else:
-                draw_pixel_text(screen, "Thank you! You are welcome to come to my house often~", (150, 510), dialogue_color, pixel_size=2, font_scale=0.9)
-                draw_pixel_text(screen, "I'll share with you my favorite fresh grass.", (230, 550), dialogue_color, pixel_size=2, font_scale=0.9)
+                txt_surf1 = txt_font.render("Thank you! You are welcome to come to my house often~", True, dialogue_color)
+                txt_surf2 = txt_font.render("I'll share with you my favorite fresh grass.", True, dialogue_color)
+                screen.blit(txt_surf1, (150, 510))
+                screen.blit(txt_surf2, (230, 550))
         ruler_font = pygame.font.SysFont(None, 16)
         ruler_color = (255, 255, 0)
         for y_pos in range(0, screen.get_height() + 1, 50):
