@@ -354,6 +354,47 @@ def main():
 
 
 def run_giraffe_level(screen):
+    def detect_wave_action():
+        """摄像头检测挥手动作，简单实现：检测画面中是否有大面积移动（模拟挥手）"""
+        import cv2
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("无法打开摄像头！")
+            return False
+        ret, prev_frame = cap.read()
+        if not ret:
+            cap.release()
+            print("摄像头读取失败！")
+            return False
+        prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+        wave_detected = False
+        start_time = cv2.getTickCount()
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            diff = cv2.absdiff(gray, prev_gray)
+            thresh = cv2.threshold(diff, 40, 255, cv2.THRESH_BINARY)[1]
+            move_area = cv2.countNonZero(thresh)
+            h, w = thresh.shape
+            percent = move_area / (h * w)
+            cv2.putText(frame, "请挥手 (Wave your hand)", (30, 40), font, 1, (0,255,0), 2)
+            cv2.imshow("动作识别挑战", frame)
+            prev_gray = gray
+            # 如果移动面积超过阈值，判定为挥手
+            if percent > 0.08:
+                wave_detected = True
+                break
+            # 挑战超时 8 秒自动退出
+            if (cv2.getTickCount() - start_time) / cv2.getTickFrequency() > 8:
+                break
+            if cv2.waitKey(30) & 0xFF == 27:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+        return wave_detected
     import pygame
     import cv2
     import sys
@@ -468,12 +509,24 @@ def run_giraffe_level(screen):
     box_page = 0
     giraffe_dialogue_box = {'x': 0, 'y': 0, 'w': 0, 'h': 0}
     giraffe_dialogue_manual_hide = False  # 新增：鼠标点击后主动隐藏标记
+    # 动态导入 001secondfloor_pose 模块，确保 Giraffe_PANJIANI 目录在 sys.path
+    import importlib
+    import sys
+    from pathlib import Path
+    giraffe_dir = str(Path(__file__).parent / "Giraffe_PANJIANI")
+    if giraffe_dir not in sys.path:
+        sys.path.insert(0, giraffe_dir)
+    secondfloor_pose_module = importlib.import_module('001secondfloor_pose')
+    SecondFloorPoseChallenge = secondfloor_pose_module.PoseChallenge
     floor1_challenge_completed = False
     floor2_challenge_completed = False
     dialogue_page = 0
     running = True
     prev_collided = False
     prev_collided_floor2 = False
+    floor1_manual_hide = False  # 新增：一楼白点弹窗主动隐藏标记
+    action_challenge_popup = False  # 是否弹出动作挑战弹窗
+    action_challenge_done = False   # 挑战是否完成
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -488,7 +541,7 @@ def run_giraffe_level(screen):
                     if dialogue_page < 2:
                         dialogue_page += 1
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # 左键点击对话框关闭（优先处理，点击后即使还在触碰点范围也不再弹出）
+                # 左键点击长颈鹿家对话框关闭（优先处理，点击后即使还在触碰点范围也不再弹出）
                 if event.button == 1 and show_giraffe_dialogue:
                     mx, my = event.pos
                     bx = giraffe_dialogue_box['x']
@@ -498,6 +551,18 @@ def run_giraffe_level(screen):
                     if bx <= mx <= bx + bw and by <= my <= by + bh:
                         show_giraffe_dialogue = False
                         giraffe_dialogue_manual_hide = True
+                # 新增：左键点击一楼白点弹窗关闭（优先处理，点击后即使还在触碰点范围也不再弹出）
+                if event.button == 1 and show_box:
+                    # 弹窗区域与主关卡一致，底部 1/3 区域
+                    h = screen.get_height() // 3
+                    bx = 0
+                    by = screen.get_height() - h
+                    bw = screen.get_width()
+                    mx, my = event.pos
+                    if bx <= mx <= bx + bw and by <= my <= by + h:
+                        show_box = False
+                        box_page = 0
+                        floor1_manual_hide = True
                 if event.button == 3 and floor2_challenge_completed:
                     if dialogue_page < 2:
                         dialogue_page += 1
@@ -576,25 +641,172 @@ def run_giraffe_level(screen):
         dbg_bg2.fill((0, 0, 0, 160))
         screen.blit(dbg_bg2, (8, 65))
         screen.blit(dbg_text2, (12, 67))
-        if collided and not prev_collided:
-            print(f"触发：distance={distance:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 一楼触发点=({floor1_trigger_x},{floor1_trigger_y})")
-            if not floor1_challenge_completed:
-                floor1_challenge_completed = True
-                center_x = 620
-                center_y = 290
-                x = center_x - fg.get_width() // 2
-                y = center_y - fg.get_height() // 2
+        # 一楼白点弹窗逻辑修复：首次进入弹窗弹出，关闭后不会自动弹出，只有离开再进入才弹出
+        if collided:
+            if not floor1_manual_hide:
+                if not prev_collided:
+                    print(f"触发：distance={distance:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 一楼触发点=({floor1_trigger_x},{floor1_trigger_y})")
+                    show_box = True
+                    if not floor1_challenge_completed:
+                        # 触发动作挑战
+                        try:
+                            from pathlib import Path
+                            img1 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "RaiseHighWithOneHand.png"
+                            img2 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "CompareHearts.png"
+                            print(f"检测动作挑战图片路径: {img1}")
+                            print(f"检测动作挑战图片路径: {img2}")
+                            if not img1.exists():
+                                print(f"❌ 图片不存在: {img1}")
+                            if not img2.exists():
+                                print(f"❌ 图片不存在: {img2}")
+                            challenge = SecondFloorPoseChallenge(
+                                target_image_path=str(img1),
+                                pose_config_name="RaiseHighWithOneHand",
+                                window_size=(1280, 720),
+                                next_challenge={
+                                    "image": str(img2),
+                                    "config": "CompareHearts"
+                                }
+                            )
+                            challenge_success = challenge.run()
+                            if challenge_success:
+                                print("✅ 一楼动作挑战完成！")
+                                floor1_challenge_completed = True
+                                center_x = 620
+                                center_y = 290
+                                x = center_x - fg.get_width() // 2
+                                y = center_y - fg.get_height() // 2
+                            else:
+                                print("❌ 一楼动作挑战未完成")
+                        except Exception as e:
+                            print(f"一楼动作挑战错误: {e}")
+                            import traceback
+                            traceback.print_exc()
+        else:
+            show_box = False
+            box_page = 0
+            floor1_manual_hide = False
         prev_collided = collided
-        if collided_floor2 and not prev_collided_floor2:
-            print(f"触发二楼：distance={distance_floor2:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 二楼触发点=({floor2_trigger_x},{floor2_trigger_y})")
+        # 修复：确保经过第二个白点时弹窗弹出，且只有挑战完成后才允许继续移动
+        if collided_floor2:
             if not floor2_challenge_completed:
-                floor2_challenge_completed = True
+                if not action_challenge_popup:
+                    print(f"触发二楼：distance={distance_floor2:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 二楼触发点=({floor2_trigger_x},{floor2_trigger_y})")
+                    # 动态导入 000firstfloor_pose.py 并触发动作挑战
+                    try:
+                        giraffe_dir = str(Path(__file__).parent / "Giraffe_PANJIANI")
+                        if giraffe_dir not in sys.path:
+                            sys.path.insert(0, giraffe_dir)
+                        firstfloor_pose_module = importlib.import_module('000firstfloor_pose')
+                        FirstFloorPoseChallenge = firstfloor_pose_module.PoseChallenge
+                        img1 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "strong_action.png"
+                        img2 = Path(__file__).parent.parent / "Zammis-Delivery" / "assets" / "4poses" / "RiseHighWithTwoHand.png"
+                        print(f"检测二楼动作挑战图片路径: {img1}")
+                        print(f"检测二楼动作挑战图片路径: {img2}")
+                        if not img1.exists():
+                            print(f"❌ 图片不存在: {img1}")
+                        if not img2.exists():
+                            print(f"❌ 图片不存在: {img2}")
+                        challenge = FirstFloorPoseChallenge(
+                            target_image_path=str(img1),
+                            pose_config_name="strong_action",
+                            window_size=(1280, 720),
+                            next_challenge={
+                                "image": str(img2),
+                                "config": "RiseHighWithTwoHand"
+                            }
+                        )
+                        challenge_success = challenge.run()
+                        if challenge_success:
+                            print("✅ 二楼动作挑战完成！")
+                            floor2_challenge_completed = True
+                        else:
+                            print("❌ 二楼动作挑战未完成")
+                    except Exception as e:
+                        print(f"二楼动作挑战错误: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    action_challenge_popup = True
+        else:
+            action_challenge_popup = False
         prev_collided_floor2 = collided_floor2
         pygame.draw.circle(screen, (255, 255, 255), (floor1_trigger_x, floor1_trigger_y), visual_radius)
         pygame.draw.circle(screen, (255, 255, 255), (floor2_trigger_x, floor2_trigger_y), visual_radius)
         # 新增：长颈鹿家对话框触碰点
         pygame.draw.circle(screen, (0, 255, 255), (giraffe_dialogue_x, giraffe_dialogue_y), visual_radius)
-        # 新增：显示长颈鹿家对话框
+
+        # 动作挑战弹窗逻辑
+        if action_challenge_popup and not action_challenge_done:
+            # 弹窗提示
+            try:
+                box_w = screen.get_width()
+                h = screen.get_height() // 3
+                dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/beginning_Post Office Dialogue Box.png").convert_alpha()
+                dw = int(box_w * 0.8)
+                dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                dx = (box_w - dw) // 2
+                dy = screen.get_height() - dh
+                screen.blit(dialogue_img, (dx, dy))
+                font_size = max(12, dh // 18)
+                txt_font = pygame.font.SysFont(None, font_size)
+                txt_surf1 = txt_font.render("动作挑战：请挥手 (Wave your hand)", True, (0, 0, 0))
+                txt_x1 = dx + (dw - txt_surf1.get_width()) // 2
+                txt_y1 = dy + (dh - txt_surf1.get_height()) // 2 + 120
+                screen.blit(txt_surf1, (txt_x1, txt_y1))
+                pygame.display.flip()
+            except Exception as e:
+                print(f"动作挑战弹窗绘制失败: {e}")
+            # 调用摄像头动作识别
+            if detect_wave_action():
+                action_challenge_done = True
+                floor2_challenge_completed = True
+                action_challenge_popup = False
+                # 挑战成功弹窗
+                try:
+                    box_w = screen.get_width()
+                    h = screen.get_height() // 3
+                    dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/beginning_Post Office Dialogue Box.png").convert_alpha()
+                    dw = int(box_w * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (box_w - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    font_size = max(12, dh // 18)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf1 = txt_font.render("挑战成功！Challenge Success!", True, (0, 128, 0))
+                    txt_x1 = dx + (dw - txt_surf1.get_width()) // 2
+                    txt_y1 = dy + (dh - txt_surf1.get_height()) // 2 + 120
+                    screen.blit(txt_surf1, (txt_x1, txt_y1))
+                    pygame.display.flip()
+                    pygame.time.delay(1200)
+                except Exception as e:
+                    print(f"挑战成功弹窗绘制失败: {e}")
+            else:
+                action_challenge_popup = False
+                # 挑战失败弹窗
+                try:
+                    box_w = screen.get_width()
+                    h = screen.get_height() // 3
+                    dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/beginning_Post Office Dialogue Box.png").convert_alpha()
+                    dw = int(box_w * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (box_w - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    font_size = max(12, dh // 18)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf1 = txt_font.render("挑战失败，请重试 (Try again)", True, (200, 0, 0))
+                    txt_x1 = dx + (dw - txt_surf1.get_width()) // 2
+                    txt_y1 = dy + (dh - txt_surf1.get_height()) // 2 + 120
+                    screen.blit(txt_surf1, (txt_x1, txt_y1))
+                    pygame.display.flip()
+                    pygame.time.delay(1200)
+                except Exception as e:
+                    print(f"挑战失败弹窗绘制失败: {e}")
+        # ...existing code...
         if show_giraffe_dialogue:
             try:
                 dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box1_Sleeping.png").convert_alpha()

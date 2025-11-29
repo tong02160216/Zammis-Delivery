@@ -55,9 +55,10 @@ FirstFloorPoseChallenge = firstfloor_pose_module.PoseChallenge
 secondfloor_pose_module = import_module('001secondfloor_pose')
 SecondFloorPoseChallenge = secondfloor_pose_module.PoseChallenge
 
-# 前景与背景图片的相对路径（请确保文件存在）
-FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
-BACKGROUND_GIF_PATH = r"Zammis-Delivery/Giraffe_PANJIANI/giraffe home.gif"
+
+# 前景与背景图片的路径（确保 GIF 路径为当前脚本同目录下）
+FOREGROUND_FRAMES_PATTERN = str(Path(__file__).parent.parent / "assets" / "bg1" / "zammi_*.png")
+BACKGROUND_GIF_PATH = str(Path(__file__).parent / "giraffe home.gif")
 VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
