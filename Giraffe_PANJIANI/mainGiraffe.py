@@ -283,24 +283,46 @@ def main():
                     if dialogue_page < 2:
                         dialogue_page += 1
                         print(f"切换到对话框第{dialogue_page + 1}页")
+                    elif dialogue_page == 2:
+                        # 第三页剧情结束，进入 pig.py
+                        import subprocess
+                        subprocess.Popen([
+                            sys.executable,
+                            "Zammis-Delivery/pig.py"
+                        ])
+                        running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # 鼠标右键点击也可以切换对话框
-                if event.button == 3 and floor2_challenge_completed:  # 3 = 右键
+                if event.button == 3 and floor2_challenge_completed:
                     if dialogue_page < 2:
                         dialogue_page += 1
                         print(f"切换到对话框第{dialogue_page + 1}页")
-                # 鼠标左键点击时，如果文字框可见并且点击在框内，则翻页或播放视频
-                elif event.button == 1 and show_box:
+                    elif dialogue_page == 2:
+                        # 第三页点击后，进入 pig.py
+                        import subprocess
+                        subprocess.Popen([
+                            sys.executable,
+                            "Zammis-Delivery/pig.py"
+                        ])
+                        running = False
+                # 鼠标左键点击时，如果点击在文字框区域且二楼挑战已完成，则切换剧情页或进入 pig.py
+                elif event.button == 1 and floor2_challenge_completed:
                     mx, my = event.pos
-                    try:
-                        h = screen.get_height() // 3
-                        bx = 0
-                        by = screen.get_height() - h
-                        bw = screen.get_width()
-                        if bx <= mx <= bx + bw and by <= my <= by + h:
-                            box_page = 1
-                    except Exception:
-                        pass
+                    h = screen.get_height() // 3
+                    bx = 0
+                    by = screen.get_height() - h
+                    bw = screen.get_width()
+                    if bx <= mx <= bx + bw and by <= my <= by + h:
+                        if dialogue_page < 2:
+                            dialogue_page += 1
+                            print(f"切换到对话框第{dialogue_page + 1}页")
+                        elif dialogue_page == 2:
+                            import subprocess
+                            subprocess.Popen([
+                                sys.executable,
+                                "Zammis-Delivery/pig.py"
+                            ])
+                            running = False
 
         # 更新背景动画帧
         bg_frame_timer += clock.get_time()

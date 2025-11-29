@@ -135,9 +135,9 @@ def main():
 
     clock = pygame.time.Clock()
 
-    # 初始位置在画面最左边（使用第一帧获取尺寸）
+    # 初始位置在画面最右边（角色中心点对齐最右侧）
     fg = fg_frames[fg_current_frame]
-    x = 0  # 放置在最左边
+    x = screen.get_width() - fg.get_width() // 2 - fg.get_width() // 2 - 600  # 角色中心点在最右边再左移600像素
     y = (screen.get_height() - fg.get_height()) // 2
 
     # 运动参数（每帧即时响应的简单实现，参考示例）
@@ -217,10 +217,30 @@ def main():
                         if bx <= mx <= bx + bw and by <= my <= by + h:
                             if box_page == 0:
                                 box_page = 1
-                            else:
+                            elif box_page == 1:
+                                # 第二次点击，触发小游戏
+                                import subprocess
+                                proc = subprocess.Popen([
+                                    sys.executable,
+                                    "Zammis-Delivery/apple_catcher_game.py"
+                                ])
                                 show_box = False
                                 box_page = 0
                                 box_manual_hide = True
+                                # 等待小游戏结束后弹出感谢对话框
+                                proc.wait()
+                                # 游戏结束，弹出感谢对话框
+                                show_box = True
+                                box_page = 2  # 新增感谢页
+                                box_manual_hide = False  # 确保感谢页不会被碰撞检测立即关闭
+                            elif box_page == 2:
+                                # 感谢页点击后关闭文字框，并左右反转角色序列
+                                show_box = False
+                                box_page = 0
+                                box_manual_hide = True
+                                # 左右反转角色序列帧
+                                fg_frames = [pygame.transform.flip(frame, True, False) for frame in fg_frames]
+                                fg = fg_frames[fg_current_frame]
                     except Exception:
                         pass
 
@@ -304,37 +324,57 @@ def main():
         # 不再绘制白点周围的额外可视化圈（按要求）
 
         # 根据碰撞设置文字框显示状态
-        if collided:
-            if not box_manual_hide:
-                show_box = True
+        # 修复：感谢页（box_page==2）时不自动关闭文字框
+        if box_page == 2:
+            pass  # 感谢页由点击关闭
         else:
-            show_box = False
-            box_manual_hide = False
+            if collided:
+                if not box_manual_hide:
+                    show_box = True
+            else:
+                show_box = False
+                box_manual_hide = False
 
         # 如果文字框可见，则绘制（支持分页）
         if show_box:
             try:
                 box_w = screen.get_width()
                 h = screen.get_height() // 3
-                dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/Pig Dialogue Box1_Worried.png").convert_alpha()
-                dw = int(box_w * 0.8)
-                dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
-                dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
-                dx = (box_w - dw) // 2
-                dy = screen.get_height() - dh
-                screen.blit(dialogue_img, (dx, dy))
-
-                # 根据 box_page 显示不同内容
-                if box_page == 0:
-                    text = "Thanks for delivering the letter..."
+                if box_page == 2:
+                    # 游戏结束感谢页
+                    dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/Pig Dialogue Box2_Happy.png").convert_alpha()
+                    dw = int(box_w * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (box_w - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    text = "Thank you! now I have enough apples!"
+                    font_size = max(8, dh // 20)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf = txt_font.render(text, True, (0, 0, 0))
+                    txt_x = dx + (dw - txt_surf.get_width()) // 2
+                    txt_y = dy + (dh - txt_surf.get_height()) // 2 + 200
+                    screen.blit(txt_surf, (txt_x, txt_y))
                 else:
-                    text = "My apples are almost sold out... Can you help me pick some more from the tree?"
-                font_size = max(8, dh // 20)
-                txt_font = pygame.font.SysFont(None, font_size)
-                txt_surf = txt_font.render(text, True, (0, 0, 0))
-                txt_x = dx + (dw - txt_surf.get_width()) // 2 - 40
-                txt_y = dy + (dh - txt_surf.get_height()) // 2 + 200
-                screen.blit(txt_surf, (txt_x, txt_y))
+                    dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/Pig Dialogue Box1_Worried.png").convert_alpha()
+                    dw = int(box_w * 0.8)
+                    dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                    dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                    dx = (box_w - dw) // 2
+                    dy = screen.get_height() - dh
+                    screen.blit(dialogue_img, (dx, dy))
+                    # 根据 box_page 显示不同内容
+                    if box_page == 0:
+                        text = "Thanks for delivering the letter..."
+                    else:
+                        text = "My apples are almost sold out... Can you help me pick some more from the tree?"
+                    font_size = max(8, dh // 20)
+                    txt_font = pygame.font.SysFont(None, font_size)
+                    txt_surf = txt_font.render(text, True, (0, 0, 0))
+                    txt_x = dx + (dw - txt_surf.get_width()) // 2 - 40
+                    txt_y = dy + (dh - txt_surf.get_height()) // 2 + 200
+                    screen.blit(txt_surf, (txt_x, txt_y))
             except Exception as e:
                 print(f"对话框图片或文字绘制失败: {e}")
 
@@ -386,6 +426,14 @@ def main():
             subprocess.Popen([
                 sys.executable,
                 "Zammis-Delivery/Giraffe_PANJIANI/mainGiraffe.py"
+            ])
+            running = False
+        # 到达最左边，自动运行 end.py
+        if character_center_x <= -96:
+            import subprocess
+            subprocess.Popen([
+                sys.executable,
+                "Zammis-Delivery/end.py"
             ])
             running = False
 
