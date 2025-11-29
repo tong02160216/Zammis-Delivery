@@ -57,7 +57,7 @@ SecondFloorPoseChallenge = secondfloor_pose_module.PoseChallenge
 
 # 前景与背景图片的相对路径（请确保文件存在）
 FOREGROUND_FRAMES_PATTERN = r"zammi_*.png"
-BACKGROUND_GIF_PATH = r"../长颈鹿家.gif"
+BACKGROUND_GIF_PATH = r"Zammis-Delivery/Giraffe_PANJIANI/giraffe home.gif"
 VIDEO_PATH = Path(r"875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
@@ -394,7 +394,17 @@ def main():
             fg_frame_timer = 0
 
         # X轴边界限制：角色中心点在0到1280范围内移动
-        x = max(-fg.get_width() // 2, min(1280 - fg.get_width() // 2, x))
+        left_limit = -fg.get_width() // 2
+        right_limit = 1280 - fg.get_width() // 2
+        x = max(left_limit, min(right_limit, x))
+
+        # 检查角色是否走出画面并触发事件
+        if x <= left_limit:
+            print("角色已离开画面左侧！可以触发自定义事件。")
+            # TODO: 在此处添加你需要的触发逻辑（如切换场景、弹窗等）
+        elif x >= right_limit:
+            print("角色已离开画面右侧！可以触发自定义事件。")
+            # TODO: 在此处添加你需要的触发逻辑（如切换场景、弹窗等）
 
         # 绘制背景（循环播放的邮局序列帧）
         screen.fill((50, 50, 50))

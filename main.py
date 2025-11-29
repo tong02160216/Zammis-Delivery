@@ -5,8 +5,8 @@ from pathlib import Path
 import glob
 
 # 前景与背景图片的相对路径（请确保文件存在）
-FOREGROUND_FRAMES_PATTERN = "zammi_*.png"
-BACKGROUND_FRAMES_PATTERN = "assets/bg1/p*.png"
+FOREGROUND_FRAMES_PATTERN = "Zammis-Delivery/zammi_*.png"
+BACKGROUND_FRAMES_PATTERN = "Zammis-Delivery/assets/bg1/p1.png,Zammis-Delivery/assets/bg1/p2.png,Zammis-Delivery/assets/bg1/p3.png,Zammis-Delivery/assets/bg1/p4.png,Zammis-Delivery/assets/bg1/p5.png"
 VIDEO_PATH = Path("875b55be8f5a0e72b6e28c650a49a795.mp4")
 
 
@@ -19,20 +19,19 @@ def load_image(path: Path):
 
 def load_png_frames(pattern: str):
     """加载PNG序列帧"""
-    frame_files = sorted(glob.glob(pattern))
+    # 支持逗号分隔的多个文件名
+    if ',' in pattern:
+        frame_files = [f.strip() for f in pattern.split(',') if f.strip()]
+    else:
+        frame_files = sorted(glob.glob(pattern))
     if not frame_files:
         raise FileNotFoundError(f"找不到匹配的PNG文件: {pattern}")
-    
     frames = []
     print(f"正在加载 {len(frame_files)} 个PNG帧...")
-    
     for frame_file in frame_files:
         surface = pygame.image.load(frame_file).convert_alpha()
         frames.append(surface)
-    
-    # 所有帧使用相同的持续时间（100毫秒）
     durations = [100] * len(frames)
-    
     return frames, durations
 
 
@@ -264,7 +263,7 @@ def main():
             try:
                 box_w = screen.get_width()
                 h = screen.get_height() // 3
-                dialogue_img = pygame.image.load("assets/Dialogue box materials/beginning_Post Office Dialogue Box.png").convert_alpha()
+                dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/beginning_Post Office Dialogue Box.png").convert_alpha()
                 dw = int(box_w * 0.8)
                 dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
                 dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
