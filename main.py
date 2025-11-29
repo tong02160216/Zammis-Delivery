@@ -450,6 +450,10 @@ def run_giraffe_level(screen):
     floor1_trigger_y = 585
     floor2_trigger_x = 1000
     floor2_trigger_y = 385
+    giraffe_dialogue_x = 160
+    giraffe_dialogue_y = 605
+    giraffe_dialogue_radius = 40
+    show_giraffe_dialogue = False
     pygame.display.set_caption("长颈鹿关卡 | Esc 返回主场景")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 20)
@@ -462,7 +466,8 @@ def run_giraffe_level(screen):
     y = int(y)
     show_box = False
     box_page = 0
-    box_rect = None
+    giraffe_dialogue_box = {'x': 0, 'y': 0, 'w': 0, 'h': 0}
+    giraffe_dialogue_manual_hide = False  # 新增：鼠标点击后主动隐藏标记
     floor1_challenge_completed = False
     floor2_challenge_completed = False
     dialogue_page = 0
@@ -476,10 +481,23 @@ def run_giraffe_level(screen):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
+                # 新增：空格关闭长颈鹿家对话框
+                elif event.key == pygame.K_SPACE:
+                    show_giraffe_dialogue = False
                 elif event.key == pygame.K_SPACE and floor2_challenge_completed:
                     if dialogue_page < 2:
                         dialogue_page += 1
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                # 左键点击对话框关闭（优先处理，点击后即使还在触碰点范围也不再弹出）
+                if event.button == 1 and show_giraffe_dialogue:
+                    mx, my = event.pos
+                    bx = giraffe_dialogue_box['x']
+                    by = giraffe_dialogue_box['y']
+                    bw = giraffe_dialogue_box['w']
+                    bh = giraffe_dialogue_box['h']
+                    if bx <= mx <= bx + bw and by <= my <= by + bh:
+                        show_giraffe_dialogue = False
+                        giraffe_dialogue_manual_hide = True
                 if event.button == 3 and floor2_challenge_completed:
                     if dialogue_page < 2:
                         dialogue_page += 1
@@ -528,6 +546,18 @@ def run_giraffe_level(screen):
         dist_y = detect_y - floor1_trigger_y
         distance = (dist_x ** 2 + dist_y ** 2) ** 0.5
         collided = distance <= circle_radius
+
+        # 新增：检测长颈鹿家对话框触碰点
+        giraffe_dist_x = detect_x - giraffe_dialogue_x
+        giraffe_dist_y = detect_y - giraffe_dialogue_y
+        giraffe_distance = (giraffe_dist_x ** 2 + giraffe_dist_y ** 2) ** 0.5
+        giraffe_collided = giraffe_distance <= giraffe_dialogue_radius
+        # 优先处理鼠标点击关闭，只有未主动关闭时才弹出
+        if giraffe_collided:
+            if not giraffe_dialogue_manual_hide:
+                show_giraffe_dialogue = True
+        else:
+            giraffe_dialogue_manual_hide = False
         try:
             pygame.draw.circle(screen, (255, 0, 0), (detect_x, detect_y), 4)
         except Exception:
@@ -562,6 +592,38 @@ def run_giraffe_level(screen):
         prev_collided_floor2 = collided_floor2
         pygame.draw.circle(screen, (255, 255, 255), (floor1_trigger_x, floor1_trigger_y), visual_radius)
         pygame.draw.circle(screen, (255, 255, 255), (floor2_trigger_x, floor2_trigger_y), visual_radius)
+        # 新增：长颈鹿家对话框触碰点
+        pygame.draw.circle(screen, (0, 255, 255), (giraffe_dialogue_x, giraffe_dialogue_y), visual_radius)
+        # 新增：显示长颈鹿家对话框
+        if show_giraffe_dialogue:
+            try:
+                dialogue_img = pygame.image.load("Zammis-Delivery/assets/Dialogue box materials/Giraffe Dialogue Box1_Sleeping.png").convert_alpha()
+                dw = int(screen.get_width() * 0.8)
+                dh = int(dialogue_img.get_height() * (dw / dialogue_img.get_width()))
+                dialogue_img = pygame.transform.smoothscale(dialogue_img, (dw, dh))
+                dx = (screen.get_width() - dw) // 2
+                dy = screen.get_height() - dh
+                screen.blit(dialogue_img, (dx, dy))
+                # 每帧更新对话框区域参数
+                giraffe_dialogue_box['x'] = dx
+                giraffe_dialogue_box['y'] = dy
+                giraffe_dialogue_box['w'] = dw
+                giraffe_dialogue_box['h'] = dh
+                # 在对话框图片上居中显示英文提示文字
+                text1 = "Oh, the giraffe is still asleep."
+                text2 = "Let’s go wake him up together first!"
+                font_size = max(12, dh // 18)
+                txt_font = pygame.font.SysFont(None, font_size)
+                txt_surf1 = txt_font.render(text1, True, (0, 0, 0))
+                txt_surf2 = txt_font.render(text2, True, (0, 0, 0))
+                txt_x1 = dx + (dw - txt_surf1.get_width()) // 2
+                txt_y1 = dy + (dh - txt_surf1.get_height()) // 2 + 160  # 再向下移动 30 像素
+                txt_x2 = dx + (dw - txt_surf2.get_width()) // 2
+                txt_y2 = txt_y1 + txt_surf1.get_height() + 8  # 第二行在第一行下方 8 像素
+                screen.blit(txt_surf1, (txt_x1, txt_y1))
+                screen.blit(txt_surf2, (txt_x2, txt_y2))
+            except Exception as e:
+                print(f"长颈鹿家对话框图片绘制失败: {e}")
         if floor2_challenge_completed:
             dialogue_color = (139, 69, 19)
             if dialogue_page == 0:
