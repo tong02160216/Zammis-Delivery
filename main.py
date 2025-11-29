@@ -325,6 +325,11 @@ def main():
         screen.blit(pos_bg, (screen.get_width() - pos_text.get_width() - 12, screen.get_height() - 30))
         screen.blit(pos_text, (screen.get_width() - pos_text.get_width() - 8, screen.get_height() - 28))
 
+        # 到达最右边自动进入长颈鹿关卡
+        if character_center_x >= screen.get_width():
+            run_giraffe_level(screen)
+            running = False
+
         # 在右上角显示当前前景帧索引和是否启用 Y 轴限制，方便调试
         clamp_active = fg_current_frame < 8
         frame_status = f"Frame: {fg_current_frame}  Clamp: {'ON' if clamp_active else 'OFF'}"
@@ -347,6 +352,271 @@ def main():
 
     pygame.quit()
 
+
+def run_giraffe_level(screen):
+    import pygame
+    import cv2
+    import sys
+    from pathlib import Path
+    from PIL import Image
+    import glob
+    import numpy as np
+    # 像素风格文字绘制
+    def draw_pixel_text(surface, text, position, color, pixel_size=3, font_scale=1.0):
+        scale_factor = 3
+        temp_width = int(len(text) * 50 * font_scale * scale_factor)
+        temp_height = int(50 * font_scale * scale_factor)
+        temp_img = np.zeros((temp_height, temp_width), dtype=np.uint8)
+        import cv2
+        cv2.putText(temp_img, text, (5, int(35 * font_scale * scale_factor)), cv2.FONT_HERSHEY_SIMPLEX, font_scale * scale_factor, 255, int(2 * scale_factor))
+        x, y = position
+        step = pixel_size
+        for i in range(0, temp_img.shape[0], step * scale_factor):
+            for j in range(0, temp_img.shape[1], step * scale_factor):
+                sample_region = temp_img[i:i+step*scale_factor, j:j+step*scale_factor]
+                if sample_region.size > 0 and np.mean(sample_region) > 128:
+                    block_y = y + i // scale_factor
+                    block_x = x + j // scale_factor
+                    if block_y < surface.get_height() - step and block_x < surface.get_width() - step:
+                        pygame.draw.rect(surface, color, (block_x, block_y, step, step))
+
+    # 资源路径
+    FOREGROUND_FRAMES_PATTERN = "Zammis-Delivery/zammi_*.png"
+    BACKGROUND_GIF_PATH = "Zammis-Delivery/Giraffe_PANJIANI/giraffe home.gif"
+    VIDEO_PATH = Path("875b55be8f5a0e72b6e28c650a49a795.mp4")
+
+    def load_png_frames(pattern: str):
+        frame_files = sorted(glob.glob(pattern))
+        if not frame_files:
+            raise FileNotFoundError(f"找不到匹配的PNG文件: {pattern}")
+        frames = []
+        for frame_file in frame_files:
+            surface = pygame.image.load(frame_file).convert_alpha()
+            frames.append(surface)
+        durations = [100] * len(frames)
+        return frames, durations
+
+    def load_gif_frames(gif_path: str, target_size=(1280, 720)):
+        if not Path(gif_path).exists():
+            raise FileNotFoundError(f"找不到GIF文件: {gif_path}")
+        pil_img = Image.open(gif_path)
+        frames = []
+        durations = []
+        try:
+            for i in range(getattr(pil_img, "n_frames", 1)):
+                pil_img.seek(i)
+                frame = pil_img.convert("RGBA")
+                frame = frame.resize(target_size, Image.Resampling.LANCZOS)
+                mode = frame.mode
+                size = frame.size
+                data = frame.tobytes()
+                py_image = pygame.image.fromstring(data, size, mode)
+                frames.append(py_image)
+                duration = pil_img.info.get('duration', 100)
+                durations.append(duration)
+        except Exception:
+            frame = pil_img.convert("RGBA")
+            frame = frame.resize(target_size, Image.Resampling.LANCZOS)
+            mode = frame.mode
+            size = frame.size
+            data = frame.tobytes()
+            py_image = pygame.image.fromstring(data, size, mode)
+            frames.append(py_image)
+            durations.append(100)
+        return frames, durations
+
+    # 复用主窗口，不再新建
+    bg_frames, bg_durations = load_gif_frames(BACKGROUND_GIF_PATH, target_size=screen.get_size())
+    bg_current_frame = 0
+    bg_frame_timer = 0
+    fg_frames, fg_durations = load_png_frames(FOREGROUND_FRAMES_PATTERN)
+    fg_current_frame = 0
+    fg_frame_timer = 0
+    bg = bg_frames[0]
+    bg_frames_converted = []
+    for frame in bg_frames:
+        try:
+            if getattr(frame, 'get_alpha', lambda: None)() is not None or frame.get_bitsize() == 32:
+                bg_frames_converted.append(frame.convert_alpha())
+            else:
+                bg_frames_converted.append(frame.convert())
+        except Exception:
+            bg_frames_converted.append(frame)
+    bg_frames = bg_frames_converted
+    bg = bg_frames[0]
+    circle_radius = 40
+    visual_radius = 10
+    floor1_trigger_x = 550
+    floor1_trigger_y = 585
+    floor2_trigger_x = 1000
+    floor2_trigger_y = 385
+    pygame.display.set_caption("长颈鹿关卡 | Esc 返回主场景")
+    clock = pygame.time.Clock()
+    font = pygame.font.SysFont(None, 20)
+    fg = fg_frames[fg_current_frame]
+    center_x, center_y = 140, 495
+    x = center_x - fg.get_width() // 2
+    y = center_y - fg.get_height() // 2
+    speed = 5
+    x = int(x)
+    y = int(y)
+    show_box = False
+    box_page = 0
+    box_rect = None
+    floor1_challenge_completed = False
+    floor2_challenge_completed = False
+    dialogue_page = 0
+    running = True
+    prev_collided = False
+    prev_collided_floor2 = False
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key == pygame.K_SPACE and floor2_challenge_completed:
+                    if dialogue_page < 2:
+                        dialogue_page += 1
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 3 and floor2_challenge_completed:
+                    if dialogue_page < 2:
+                        dialogue_page += 1
+        bg_frame_timer += clock.get_time()
+        if bg_frame_timer >= bg_durations[bg_current_frame]:
+            bg_frame_timer = 0
+            bg_current_frame = (bg_current_frame + 1) % len(bg_frames)
+            bg = bg_frames[bg_current_frame]
+        keys = pygame.key.get_pressed()
+        is_moving = False
+        if not floor2_challenge_completed:
+            old_x = x
+            if keys[pygame.K_a]:
+                x -= speed
+                is_moving = True
+            if keys[pygame.K_d]:
+                x += speed
+                is_moving = True
+        if is_moving:
+            fg_frame_timer += clock.get_time()
+            if fg_frame_timer >= fg_durations[fg_current_frame]:
+                fg_frame_timer = 0
+                fg_current_frame = (fg_current_frame + 1) % len(fg_frames)
+                fg = fg_frames[fg_current_frame]
+        else:
+            fg_current_frame = 0
+            fg = fg_frames[0]
+            fg_frame_timer = 0
+        left_limit = -fg.get_width() // 2
+        right_limit = 1280 - fg.get_width() // 2
+        x = max(left_limit, min(right_limit, x))
+        if x <= left_limit or x >= right_limit:
+            print("长颈鹿关卡结束，返回主场景！")
+            running = False
+        screen.fill((50, 50, 50))
+        try:
+            screen.blit(bg, (0, 0))
+        except Exception as e:
+            pass
+        screen.blit(fg, (int(x), int(y)))
+        character_center_x = int(x) + fg.get_width() // 2
+        character_center_y = int(y) + fg.get_height() // 2
+        detect_x = character_center_x - 40
+        detect_y = character_center_y + 100
+        dist_x = detect_x - floor1_trigger_x
+        dist_y = detect_y - floor1_trigger_y
+        distance = (dist_x ** 2 + dist_y ** 2) ** 0.5
+        collided = distance <= circle_radius
+        try:
+            pygame.draw.circle(screen, (255, 0, 0), (detect_x, detect_y), 4)
+        except Exception:
+            pass
+        dbg_text = font.render(f"Floor1 dist={int(distance)} r={circle_radius} collided={collided}", True, (255, 255, 255))
+        dbg_bg = pygame.Surface((dbg_text.get_width() + 8, dbg_text.get_height() + 6), pygame.SRCALPHA)
+        dbg_bg.fill((0, 0, 0, 160))
+        screen.blit(dbg_bg, (8, 40))
+        screen.blit(dbg_text, (12, 42))
+        dist_x_floor2 = detect_x - floor2_trigger_x
+        dist_y_floor2 = detect_y - floor2_trigger_y
+        distance_floor2 = (dist_x_floor2 ** 2 + dist_y_floor2 ** 2) ** 0.5
+        collided_floor2 = distance_floor2 <= circle_radius
+        dbg_text2 = font.render(f"Floor2 dist={int(distance_floor2)} r={circle_radius} collided={collided_floor2}", True, (255, 255, 255))
+        dbg_bg2 = pygame.Surface((dbg_text2.get_width() + 8, dbg_text2.get_height() + 6), pygame.SRCALPHA)
+        dbg_bg2.fill((0, 0, 0, 160))
+        screen.blit(dbg_bg2, (8, 65))
+        screen.blit(dbg_text2, (12, 67))
+        if collided and not prev_collided:
+            print(f"触发：distance={distance:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 一楼触发点=({floor1_trigger_x},{floor1_trigger_y})")
+            if not floor1_challenge_completed:
+                floor1_challenge_completed = True
+                center_x = 620
+                center_y = 290
+                x = center_x - fg.get_width() // 2
+                y = center_y - fg.get_height() // 2
+        prev_collided = collided
+        if collided_floor2 and not prev_collided_floor2:
+            print(f"触发二楼：distance={distance_floor2:.1f}, circle_radius={circle_radius}, detect=({detect_x},{detect_y}), 二楼触发点=({floor2_trigger_x},{floor2_trigger_y})")
+            if not floor2_challenge_completed:
+                floor2_challenge_completed = True
+        prev_collided_floor2 = collided_floor2
+        pygame.draw.circle(screen, (255, 255, 255), (floor1_trigger_x, floor1_trigger_y), visual_radius)
+        pygame.draw.circle(screen, (255, 255, 255), (floor2_trigger_x, floor2_trigger_y), visual_radius)
+        if floor2_challenge_completed:
+            dialogue_color = (139, 69, 19)
+            if dialogue_page == 0:
+                draw_pixel_text(screen, "......what's the matter?", (350, 530), dialogue_color, pixel_size=2, font_scale=0.9)
+            elif dialogue_page == 1:
+                draw_pixel_text(screen, "Oh my god! It's my letter!", (340, 530), dialogue_color, pixel_size=2, font_scale=0.9)
+            else:
+                draw_pixel_text(screen, "Thank you! You are welcome to come to my house often~", (150, 510), dialogue_color, pixel_size=2, font_scale=0.9)
+                draw_pixel_text(screen, "I'll share with you my favorite fresh grass.", (230, 550), dialogue_color, pixel_size=2, font_scale=0.9)
+        ruler_font = pygame.font.SysFont(None, 16)
+        ruler_color = (255, 255, 0)
+        for y_pos in range(0, screen.get_height() + 1, 50):
+            line_length = 15 if y_pos % 100 == 0 else 8
+            pygame.draw.line(screen, ruler_color, (0, y_pos), (line_length, y_pos), 2)
+            if y_pos % 100 == 0 or y_pos in [250, 279, 300, 319, 350]:
+                y_text = ruler_font.render(str(y_pos), True, ruler_color)
+                screen.blit(y_text, (line_length + 2, y_pos - 8))
+        for x_pos in range(0, screen.get_width() + 1, 50):
+            line_length = 15 if x_pos % 100 == 0 else 8
+            pygame.draw.line(screen, ruler_color, (x_pos, 0), (x_pos, line_length), 2)
+            if x_pos % 100 == 0 or x_pos in [500, 550, 600]:
+                x_text = ruler_font.render(str(x_pos), True, ruler_color)
+                screen.blit(x_text, (x_pos - 10, line_length + 2))
+        pygame.draw.line(screen, ruler_color, (0, 0), (0, screen.get_height()), 2)
+        pygame.draw.line(screen, ruler_color, (0, 0), (screen.get_width(), 0), 2)
+        axis_label_font = pygame.font.SysFont(None, 14)
+        x_label = axis_label_font.render("X ->", True, ruler_color)
+        y_label = axis_label_font.render("Y", True, ruler_color)
+        y_label_down = axis_label_font.render("|", True, ruler_color)
+        y_label_arrow = axis_label_font.render("v", True, ruler_color)
+        screen.blit(x_label, (20, 2))
+        screen.blit(y_label, (2, 20))
+        screen.blit(y_label_down, (5, 30))
+        screen.blit(y_label_arrow, (4, 38))
+        pos_text = ruler_font.render(f"Center: ({character_center_x}, {character_center_y})", True, (255, 255, 0))
+        pos_bg = pygame.Surface((pos_text.get_width() + 8, pos_text.get_height() + 4), pygame.SRCALPHA)
+        pos_bg.fill((0, 0, 0, 150))
+        screen.blit(pos_bg, (screen.get_width() - pos_text.get_width() - 12, screen.get_height() - 30))
+        screen.blit(pos_text, (screen.get_width() - pos_text.get_width() - 8, screen.get_height() - 28))
+        clamp_active = fg_current_frame < 8
+        frame_status = f"Frame: {fg_current_frame}  Clamp: {'ON' if clamp_active else 'OFF'}"
+        frame_text = font.render(frame_status, True, (255, 255, 255))
+        frame_bg = pygame.Surface((frame_text.get_width() + 8, frame_text.get_height() + 6), pygame.SRCALPHA)
+        frame_bg.fill((0, 0, 0, 140))
+        fr_x = screen.get_width() - (frame_text.get_width() + 20)
+        screen.blit(frame_bg, (fr_x, 8))
+        screen.blit(frame_text, (fr_x + 4, 10))
+        info = font.render("WASD 或 箭头 移动 — Esc 返回主场景", True, (255, 255, 255))
+        info_bg = pygame.Surface((info.get_width() + 8, info.get_height() + 6), pygame.SRCALPHA)
+        info_bg.fill((0, 0, 0, 120))
+        screen.blit(info_bg, (8, 8))
+        screen.blit(info, (12, 10))
+        pygame.display.flip()
+        clock.tick(60)
+    pygame.quit()
 
 if __name__ == "__main__":
     try:
